@@ -12,6 +12,7 @@
         <module>common</module>
         <module>broker</module>
         <module>namesrv</module>
+        <module>remoting</module>
     </modules>
 
     <properties>
@@ -25,6 +26,8 @@
         <commons-io.version>2.7</commons-io.version>
         <log4j.version>1.2.17</log4j.version>
         <logging-log4j.version>2.17.1</logging-log4j.version>
+        <slf4j.version>1.7.7</slf4j.version>
+        <logback.version>1.2.10</logback.version>
 
         <!-- Test dependencies -->
         <junit.version>4.13.2</junit.version>
@@ -55,6 +58,16 @@
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
                 <version>${commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
