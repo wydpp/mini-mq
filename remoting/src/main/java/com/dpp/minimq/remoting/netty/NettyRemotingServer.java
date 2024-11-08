@@ -40,6 +40,8 @@ public class NettyRemotingServer implements RemotingServer {
 
     private NettyServerHandler serverHandler;
 
+    private NettyRequestProcessor nettyRequestProcessor;
+
     /**
      * 构建一个服务端
      *
@@ -191,5 +193,9 @@ public class NettyRemotingServer implements RemotingServer {
         return RemotingUtil.isLinuxPlatform()
                 && nettyServerConfig.isUseEpollNativeSelector()
                 && Epoll.isAvailable();
+    }
+
+    public void registerProcessor(NettyRequestProcessor nettyRequestProcessor){
+        this.nettyRequestProcessor = nettyRequestProcessor;
     }
 }

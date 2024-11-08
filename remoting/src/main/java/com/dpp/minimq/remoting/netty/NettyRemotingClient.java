@@ -1,5 +1,6 @@
 package com.dpp.minimq.remoting.netty;
 
+import com.dpp.minimq.remoting.RemotingClient;
 import com.dpp.minimq.remoting.RemotingServer;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
 import io.netty.bootstrap.Bootstrap;
@@ -14,7 +15,7 @@ import io.netty.util.concurrent.EventExecutorGroup;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class NettyRemotingClient implements RemotingServer {
+public class NettyRemotingClient implements RemotingClient {
 
     private NettyClientConfig nettyClientConfig;
 
@@ -77,6 +78,11 @@ public class NettyRemotingClient implements RemotingServer {
     public RemotingCommand invokeSync(Channel channel, RemotingCommand request, long timeoutMillis) {
         //TODO
         return RemotingCommand.createRequestCommand(100);
+    }
+
+    @Override
+    public void registerProcessor(NettyRequestProcessor nettyRequestProcessor) {
+
     }
 
     @Override
