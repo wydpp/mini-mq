@@ -1,16 +1,15 @@
 package com.dpp.minimq.remoting.protocol;
 
-import com.dpp.minimq.remoting.exception.RemotingCommandException;
-import io.netty.buffer.ByteBuf;
+import java.io.Serializable;
 
 /**
  * 执行命令
  */
-public class RemotingCommand {
+public class RemotingCommand implements Serializable {
 
     private int code;
 
-    private byte[] body;
+    private String message;
 
     protected RemotingCommand() {
     }
@@ -29,12 +28,11 @@ public class RemotingCommand {
         this.code = code;
     }
 
-    public static RemotingCommand decode(final ByteBuf byteBuffer) throws RemotingCommandException {
-        //todo byteBuffer 转换成 command
-        return new RemotingCommand();
+    public String getMessage() {
+        return message;
     }
 
-    public byte[] getBody() {
-        return body;
+    public void setMessage(String message) {
+        this.message = message;
     }
 }

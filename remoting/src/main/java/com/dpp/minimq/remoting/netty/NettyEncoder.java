@@ -16,6 +16,7 @@
  */
 package com.dpp.minimq.remoting.netty;
 
+import com.alibaba.fastjson.JSON;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler;
@@ -24,6 +25,9 @@ import io.netty.handler.codec.MessageToByteEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 @ChannelHandler.Sharable
 public class NettyEncoder extends MessageToByteEncoder<RemotingCommand> {
     private static final Logger log = LoggerFactory.getLogger(NettyEncoder.class);
@@ -31,6 +35,10 @@ public class NettyEncoder extends MessageToByteEncoder<RemotingCommand> {
     @Override
     public void encode(ChannelHandlerContext ctx, RemotingCommand remotingCommand, ByteBuf out)
             throws Exception {
-        //todo command 转换成 byteBuf
+        //command 转换成 byteBuf
+        byte[] bytes = JSON.toJSONString(remotingCommand).getBytes(StandardCharsets.UTF_8);
+        out.writeInt(bytes.length);
+        out.writeBytes(bytes);
+        log.info("command=>bytes 编码结束");
     }
 }

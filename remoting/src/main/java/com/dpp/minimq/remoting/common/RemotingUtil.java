@@ -229,7 +229,7 @@ public class RemotingUtil {
         }
     }
 
-    public static String parseChannelRemoteAddr(final Channel channel) {
+/*    public static String parseChannelRemoteAddr(final Channel channel) {
         if (null == channel) {
             return "";
         }
@@ -244,5 +244,5 @@ public class RemotingUtil {
             att.set(addr);
         }
         return addr;
-    }
+    }*/
 }
