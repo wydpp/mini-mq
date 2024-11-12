@@ -35,4 +35,13 @@ public class RemotingCommand implements Serializable {
     public void setMessage(String message) {
         this.message = message;
     }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("RemotingCommand{");
+        sb.append("code=").append(code);
+        sb.append(", message='").append(message).append('\'');
+        sb.append('}');
+        return sb.toString();
+    }
 }
