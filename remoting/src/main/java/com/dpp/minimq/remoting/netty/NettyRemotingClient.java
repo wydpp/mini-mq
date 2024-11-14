@@ -35,10 +35,12 @@ public class NettyRemotingClient implements RemotingClient {
 
     //一个客户端需要和多个namesrv保持链接
     private final List<String> namesrvAddrList = new ArrayList<>();
+    //每个连接对应的Bootstrap
     private final ConcurrentHashMap<String /* cidr */, Bootstrap> bootstrapMap = new ConcurrentHashMap<>();
+    //每个连接对应的channel
     private final ConcurrentMap<String /* addr */, ChannelFuture> channelTables = new ConcurrentHashMap<>();
-
-    protected final ConcurrentMap<Integer /* requestCode */, ResponseFuture> responseTable =
+    //每个请求id对应的ResponseFuture
+    protected final ConcurrentMap<Integer /* requestId */, ResponseFuture> responseTable =
             new ConcurrentHashMap<>(256);
 
     public NettyRemotingClient(final NettyClientConfig nettyClientConfig) {
@@ -92,7 +94,6 @@ public class NettyRemotingClient implements RemotingClient {
                 log.info("Success to write a request command to {}", addr);
                 return;
             }
-            responseTable.remove(request.getId());
             responseFuture.setCause(f.cause());
             responseFuture.putResponse(null);
             log.info("Failed to write a request command to {}, error {}", addr, f.cause());

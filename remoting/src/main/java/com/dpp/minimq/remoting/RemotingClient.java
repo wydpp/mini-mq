@@ -7,7 +7,6 @@ public interface RemotingClient extends RemotingService {
 
     /**
      * 同步执行命令
-     * @param channel
      * @param request
      * @param timeoutMillis
      * @return
