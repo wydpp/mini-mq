@@ -36,7 +36,7 @@ public class NettyEncoder extends MessageToByteEncoder<RemotingCommand> {
         //command 转换成 byteBuf
         byte[] bytes = JSON.toJSONString(remotingCommand).getBytes(StandardCharsets.UTF_8);
         out.writeInt(bytes.length);
-        out.writeBytes(Unpooled.wrappedBuffer(bytes));
+        out.writeBytes(bytes);
         log.info("command=>bytes 编码结束");
     }
 }

@@ -1,17 +1,26 @@
 package com.dpp.minimq.remoting.protocol;
 
 import java.io.Serializable;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 执行命令
  */
 public class RemotingCommand implements Serializable {
 
+    private static AtomicInteger requestId = new AtomicInteger(0);
+
     private int code;
 
     private String message;
 
+    private int id = requestId.getAndIncrement();
+
     protected RemotingCommand() {
+    }
+
+    public int getId(){
+        return id;
     }
 
     public static RemotingCommand createRequestCommand(int code) {

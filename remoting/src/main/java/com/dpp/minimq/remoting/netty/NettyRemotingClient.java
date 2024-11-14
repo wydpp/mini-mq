@@ -1,10 +1,11 @@
 package com.dpp.minimq.remoting.netty;
 
+import com.alibaba.fastjson.JSON;
 import com.dpp.minimq.remoting.RemotingClient;
 import com.dpp.minimq.remoting.common.RemotingHelper;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
+import com.dpp.minimq.remoting.protocol.ResponseFuture;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -68,17 +69,14 @@ public class NettyRemotingClient implements RemotingClient {
 
     @Override
     public RemotingCommand invokeSync(String addr, RemotingCommand request, long timeoutMillis) {
-        //TODO
         if (Objects.isNull(addr)) {
             throw new RuntimeException("addr can not be null");
         }
-        ChannelFuture channelFuture = this.channelTables.get(addr);
-        if (channelFuture == null) {
-            channelFuture = createChannelFuture(addr);
-        }
-        if (channelFuture != null) {
-            Channel channel = channelFuture.channel();
+        Channel channel = getChannel(addr);
+        if (channel != null && channel.isActive()) {
             return this.invokeSync(channel, request, timeoutMillis);
+        } else {
+            log.warn("createChannel: connect remote host[" + addr + "] failed, " + channel);
         }
         return RemotingCommand.createRequestCommand(500);
     }
@@ -87,21 +85,52 @@ public class NettyRemotingClient implements RemotingClient {
         if (Objects.isNull(channel)) {
             throw new RuntimeException("channel can not be null");
         }
-        RemotingCommand remotingCommand = RemotingCommand.createRequestCommand(500);
+        ResponseFuture responseFuture = new ResponseFuture();
         final SocketAddress addr = channel.remoteAddress();
         channel.writeAndFlush(request).addListener((ChannelFutureListener) f -> {
+            RemotingCommand remotingCommand = RemotingCommand.createRequestCommand(500);
             if (f.isSuccess()) {
                 remotingCommand.setCode(200);
                 log.info("Success to write a request command to {}", addr);
+                responseFuture.putResponse(remotingCommand);
                 return;
             }
             remotingCommand.setMessage(f.cause().getMessage());
+            responseFuture.putResponse(remotingCommand);
             log.info("Failed to write a request command to {}, error {}", addr, f.cause());
         });
-        return remotingCommand;
+        try {
+            RemotingCommand remotingCommand = responseFuture.waitResponse(1000L);
+            log.info("invokeSync return remotingCommand : {}", JSON.toJSONString(remotingCommand));
+            return remotingCommand;
+        } catch (Exception e) {
+            log.error("", e);
+        }
+        return RemotingCommand.createRequestCommand(500);
     }
 
-    private ChannelFuture createChannelFuture(String addr) {
+    private Channel getChannel(String addr) {
+        ChannelFuture channelFuture = this.channelTables.get(addr);
+        if (channelFuture == null) {
+            try {
+                channelFuture = createChannelFuture(addr);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        if (channelFuture != null) {
+            //这段代码必须要添加，确保channel初始化完成
+            Channel channel = channelFuture.channel();
+            if (channel != null && channel.isActive()) {
+                return channel;
+            } else {
+                log.warn("createChannel: connect remote host[" + addr + "] failed, " + channelFuture.toString());
+            }
+        }
+        return null;
+    }
+
+    private ChannelFuture createChannelFuture(String addr) throws InterruptedException {
         if (!namesrvAddrList.contains(addr)) {
             namesrvAddrList.add(addr);
         }
@@ -113,8 +142,16 @@ public class NettyRemotingClient implements RemotingClient {
         }
         ChannelFuture channelFuture = bootstrap.connect(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
         log.info("createChannel: begin to connect remote host[{}]", addr);
-        this.channelTables.put(addr, channelFuture);
-        return channelFuture;
+        //awaitUninterruptibly方法确保channel是初始化完成的
+        if (channelFuture.awaitUninterruptibly(this.nettyClientConfig.getConnectTimeoutMillis())) {
+            log.info("createChannel: connect remote host[{}] success, {}", addr, channelFuture.toString());
+            this.channelTables.put(addr, channelFuture);
+            return channelFuture;
+        } else {
+            log.warn("createChannel: connect remote host[{}] timeout {}ms, {}", addr, this.nettyClientConfig.getConnectTimeoutMillis(),
+                    channelFuture.toString());
+        }
+        return null;
     }
 
     private Bootstrap createBootstrap() {
@@ -124,18 +161,15 @@ public class NettyRemotingClient implements RemotingClient {
                 .option(ChannelOption.SO_KEEPALIVE, false)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nettyClientConfig.getConnectTimeoutMillis())
                 .handler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    public void initChannel(SocketChannel ch) {
-                        log.info("client initChannel 方法执行!!");
-                        ChannelPipeline pipeline = ch.pipeline();
-                        pipeline.addLast(
-                                defaultEventExecutorGroup,
-                                new NettyDecoder(),
-                                new NettyEncoder(),
-                                new NettyClientHandler());
-                        log.info("client initChannel 方法执行结束!!");
-                    }
-                });
+                             @Override
+                             protected void initChannel(SocketChannel ch) throws Exception {
+                                 ch.pipeline().addLast(
+                                         new NettyEncoder(),
+                                         new NettyDecoder(),
+                                         new NettyClientHandler());
+                             }
+                         }
+                );
         return bootstrap;
     }
 
@@ -159,75 +193,11 @@ public class NettyRemotingClient implements RemotingClient {
                         }
                     });
         }
-        Bootstrap bootstrap = this.bootstrap.group(this.eventLoopGroupWorker).channel(NioSocketChannel.class)
-                .option(ChannelOption.TCP_NODELAY, true)
-                .option(ChannelOption.SO_KEEPALIVE, false)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nettyClientConfig.getConnectTimeoutMillis())
-                .handler(new ChannelInitializer<SocketChannel>() {
-                    @Override
-                    public void initChannel(SocketChannel ch) throws Exception {
-                        ChannelPipeline pipeline = ch.pipeline();
-                        ch.pipeline().addLast(
-                                defaultEventExecutorGroup,
-                                new NettyEncoder(),
-                                new NettyDecoder(),
-                                new NettyConnectManageHandler(),
-                                new NettyClientHandler());
-                    }
-                });
     }
 
     @Override
     public void shutDown() {
-
+        defaultEventExecutorGroup.shutdownGracefully();
     }
 
-    class NettyConnectManageHandler extends ChannelDuplexHandler {
-        @Override
-        public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress, SocketAddress localAddress,
-                            ChannelPromise promise) throws Exception {
-            //final String local = localAddress == null ? "UNKNOWN" : RemotingHelper.parseSocketAddressAddr(localAddress);
-            //final String remote = remoteAddress == null ? "UNKNOWN" : RemotingHelper.parseSocketAddressAddr(remoteAddress);
-            log.info("NETTY CLIENT PIPELINE: CONNECT  {} => {}", remoteAddress,localAddress);
-            closeChannel(ctx.channel());
-            //super.connect(ctx, remoteAddress, localAddress, promise);
-        }
-
-        @Override
-        public void disconnect(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-            final String remoteAddress = RemotingHelper.parseChannelRemoteAddr(ctx.channel());
-            log.info("NETTY CLIENT PIPELINE: DISCONNECT {}", remoteAddress);
-            super.disconnect(ctx, promise);
-        }
-
-        @Override
-        public void close(ChannelHandlerContext ctx, ChannelPromise promise) throws Exception {
-            final String remoteAddress = RemotingHelper.parseChannelRemoteAddr(ctx.channel());
-            log.info("NETTY CLIENT PIPELINE: CLOSE {}", remoteAddress);
-            closeChannel(ctx.channel());
-            super.close(ctx, promise);
-        }
-
-        @Override
-        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-            if (evt instanceof IdleStateEvent) {
-                IdleStateEvent event = (IdleStateEvent) evt;
-                if (event.state().equals(IdleState.ALL_IDLE)) {
-                    final String remoteAddress = RemotingHelper.parseChannelRemoteAddr(ctx.channel());
-                    log.warn("NETTY CLIENT PIPELINE: IDLE exception [{}]", remoteAddress);
-                    closeChannel(ctx.channel());
-                }
-            }
-
-            ctx.fireUserEventTriggered(evt);
-        }
-
-        @Override
-        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-            final String remoteAddress = RemotingHelper.parseChannelRemoteAddr(ctx.channel());
-            log.warn("NETTY CLIENT PIPELINE: exceptionCaught {}", remoteAddress);
-            log.warn("NETTY CLIENT PIPELINE: exceptionCaught exception.", cause);
-            closeChannel(ctx.channel());
-        }
-    }
 }

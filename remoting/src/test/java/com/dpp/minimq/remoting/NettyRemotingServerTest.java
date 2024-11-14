@@ -16,7 +16,7 @@ public class NettyRemotingServerTest {
 
     @BeforeClass
     public static void setup() throws InterruptedException {
-        //remotingServer = createRemotingServer();
+        remotingServer = createRemotingServer();
         remotingClient = createRemotingClient();
     }
 
@@ -50,6 +50,5 @@ public class NettyRemotingServerTest {
         RemotingCommand request = RemotingCommand.createRequestCommand(100);
         RemotingCommand response = remotingClient.invokeSync("localhost:8080", request, 1000 * 3);
         System.out.println(JSON.toJSONString(response));
-        TimeUnit.MINUTES.sleep(10);
     }
 }

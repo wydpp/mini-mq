@@ -2,7 +2,6 @@ package com.dpp.minimq.remoting;
 
 import com.dpp.minimq.remoting.netty.NettyRequestProcessor;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
-import io.netty.channel.Channel;
 
 public interface RemotingClient extends RemotingService {
 
