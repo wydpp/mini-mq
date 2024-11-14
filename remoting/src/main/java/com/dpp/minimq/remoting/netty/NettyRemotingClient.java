@@ -2,7 +2,6 @@ package com.dpp.minimq.remoting.netty;
 
 import com.alibaba.fastjson.JSON;
 import com.dpp.minimq.remoting.RemotingClient;
-import com.dpp.minimq.remoting.common.RemotingHelper;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
 import com.dpp.minimq.remoting.protocol.ResponseFuture;
 import io.netty.bootstrap.Bootstrap;
@@ -10,8 +9,6 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import io.netty.util.concurrent.EventExecutorGroup;
 import org.slf4j.Logger;
@@ -25,8 +22,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import static com.dpp.minimq.remoting.common.RemotingUtil.closeChannel;
 
 public class NettyRemotingClient implements RemotingClient {
 
@@ -42,6 +37,9 @@ public class NettyRemotingClient implements RemotingClient {
     private final List<String> namesrvAddrList = new ArrayList<>();
     private final ConcurrentHashMap<String /* cidr */, Bootstrap> bootstrapMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<String /* addr */, ChannelFuture> channelTables = new ConcurrentHashMap<>();
+
+    protected final ConcurrentMap<Integer /* requestCode */, ResponseFuture> responseTable =
+            new ConcurrentHashMap<>(256);
 
     public NettyRemotingClient(final NettyClientConfig nettyClientConfig) {
         this(nettyClientConfig, null, null);
@@ -86,17 +84,17 @@ public class NettyRemotingClient implements RemotingClient {
             throw new RuntimeException("channel can not be null");
         }
         ResponseFuture responseFuture = new ResponseFuture();
+        responseTable.put(request.getId(), responseFuture);
         final SocketAddress addr = channel.remoteAddress();
         channel.writeAndFlush(request).addListener((ChannelFutureListener) f -> {
-            RemotingCommand remotingCommand = RemotingCommand.createRequestCommand(500);
             if (f.isSuccess()) {
-                remotingCommand.setCode(200);
+                responseFuture.setSendRequestOK(true);
                 log.info("Success to write a request command to {}", addr);
-                responseFuture.putResponse(remotingCommand);
                 return;
             }
-            remotingCommand.setMessage(f.cause().getMessage());
-            responseFuture.putResponse(remotingCommand);
+            responseTable.remove(request.getId());
+            responseFuture.setCause(f.cause());
+            responseFuture.putResponse(null);
             log.info("Failed to write a request command to {}, error {}", addr, f.cause());
         });
         try {
@@ -105,8 +103,10 @@ public class NettyRemotingClient implements RemotingClient {
             return remotingCommand;
         } catch (Exception e) {
             log.error("", e);
+        } finally {
+            responseTable.remove(request.getId());
         }
-        return RemotingCommand.createRequestCommand(500);
+        return request;
     }
 
     private Channel getChannel(String addr) {
@@ -166,7 +166,7 @@ public class NettyRemotingClient implements RemotingClient {
                                  ch.pipeline().addLast(
                                          new NettyEncoder(),
                                          new NettyDecoder(),
-                                         new NettyClientHandler());
+                                         new NettyClientHandler(responseTable));
                              }
                          }
                 );

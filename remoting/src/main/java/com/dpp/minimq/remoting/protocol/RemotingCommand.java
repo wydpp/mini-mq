@@ -23,6 +23,10 @@ public class RemotingCommand implements Serializable {
         return id;
     }
 
+    public void setId(int id) {
+        this.id = id;
+    }
+
     public static RemotingCommand createRequestCommand(int code) {
         RemotingCommand cmd = new RemotingCommand();
         cmd.setCode(code);

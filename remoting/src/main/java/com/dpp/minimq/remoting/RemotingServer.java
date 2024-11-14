@@ -4,10 +4,11 @@ import com.dpp.minimq.remoting.netty.NettyRequestProcessor;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
 import io.netty.channel.Channel;
 
-public interface RemotingServer extends RemotingService{
+public interface RemotingServer extends RemotingService {
 
     /**
      * 同步执行命令
+     *
      * @param channel
      * @param request
      * @param timeoutMillis
@@ -19,7 +20,8 @@ public interface RemotingServer extends RemotingService{
 
     /**
      * 添加处理器
+     *
      * @param nettyRequestProcessor
      */
-    void registerProcessor(NettyRequestProcessor nettyRequestProcessor);
+    void registerProcessor(int requestCode, NettyRequestProcessor nettyRequestProcessor);
 }
