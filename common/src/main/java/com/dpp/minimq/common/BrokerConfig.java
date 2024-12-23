@@ -34,22 +34,22 @@ public class BrokerConfig {
 
     private String brokerName = defaultBrokerName();
 
-    private String brokerIP1 = RemotingUtil.getLocalAddress();
-
-
     private String defaultBrokerName() {
-        return "DEFAULT_BROKER";
         return StringUtils.isEmpty(localHostName) ? "DEFAULT_BROKER" : localHostName;
     }
 
     public int getListenPort() {
         return listenPort;
+    }
+
     public static String getLocalHostName() {
         return localHostName;
     }
 
     public void setListenPort(int listenPort) {
         this.listenPort = listenPort;
+    }
+
     public static void setLocalHostName(String localHostName) {
         BrokerConfig.localHostName = localHostName;
     }

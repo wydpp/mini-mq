@@ -38,15 +38,15 @@ public class BrokerController {
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig);
     }
 
-    public void start() throws Exception{
-        if (remotingServer != null){
+    public void start() throws Exception {
+        if (remotingServer != null) {
             //启动netty服务端
             remotingServer.start();
         }
     }
 
     public void shutdown() {
-        if (remotingServer != null){
+        if (remotingServer != null) {
             this.remotingServer.shutDown();
         }
     }
@@ -63,52 +63,4 @@ public class BrokerController {
         return this.brokerConfig.getBrokerIP1() + ":" + this.nettyServerConfig.getListenPort();
     }
 
-    private BrokerConfig brokerConfig;
-
-    private NettyServerConfig nettyServerConfig;
-
-    protected RemotingServer remotingServer;
-
-    public BrokerController(NettyServerConfig nettyServerConfig) {
-        this.nettyServerConfig = nettyServerConfig;
-    }
-
-    /**
-     * 初始化工作
-     * @return
-     */
-    public boolean initialize(){
-        //message store 初始化
-        //netty server 初始化
-        initializeRemotingServer();
-        return true;
-    }
-
-    protected void initializeRemotingServer() {
-        this.remotingServer = new NettyRemotingServer(this.nettyServerConfig);
-    }
-
-    public void start(){
-        if (remotingServer != null){
-            remotingServer.start();
-        }
-    }
-
-    public void shutdown(){
-        if (remotingServer != null){
-            remotingServer.shutDown();
-        }
-    }
-
-    public BrokerConfig getBrokerConfig() {
-        return brokerConfig;
-    }
-
-    public NettyServerConfig getNettyServerConfig() {
-        return nettyServerConfig;
-    }
-
-    public String getBrokerAddr() {
-        return this.brokerConfig.getBrokerIP1() + ":" + this.nettyServerConfig.getListenPort();
-    }
 }
