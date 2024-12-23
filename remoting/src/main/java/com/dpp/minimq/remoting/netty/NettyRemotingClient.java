@@ -35,9 +35,7 @@ public class NettyRemotingClient implements RemotingClient {
 
     //一个客户端需要和多个namesrv保持链接
     private final List<String> namesrvAddrList = new ArrayList<>();
-    //每个连接对应的Bootstrap
-    private final ConcurrentHashMap<String /* cidr */, Bootstrap> bootstrapMap = new ConcurrentHashMap<>();
-    //每个连接对应的channel
+
     private final ConcurrentMap<String /* addr */, ChannelFuture> channelTables = new ConcurrentHashMap<>();
     //每个请求id对应的ResponseFuture
     protected final ConcurrentMap<Integer /* requestId */, ResponseFuture> responseTable =
@@ -136,11 +134,6 @@ public class NettyRemotingClient implements RemotingClient {
             namesrvAddrList.add(addr);
         }
         String[] hostAndPort = addr.split(":");
-        Bootstrap bootstrap = this.bootstrapMap.get(addr);
-        if (bootstrap == null) {
-            bootstrap = createBootstrap();
-            this.bootstrapMap.put(addr, bootstrap);
-        }
         ChannelFuture channelFuture = bootstrap.connect(hostAndPort[0], Integer.parseInt(hostAndPort[1]));
         log.info("createChannel: begin to connect remote host[{}]", addr);
         //awaitUninterruptibly方法确保channel是初始化完成的
@@ -153,25 +146,6 @@ public class NettyRemotingClient implements RemotingClient {
                     channelFuture.toString());
         }
         return null;
-    }
-
-    private Bootstrap createBootstrap() {
-        Bootstrap bootstrap = new Bootstrap();
-        bootstrap.group(this.eventLoopGroupWorker).channel(NioSocketChannel.class)
-                .option(ChannelOption.TCP_NODELAY, true)
-                .option(ChannelOption.SO_KEEPALIVE, false)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nettyClientConfig.getConnectTimeoutMillis())
-                .handler(new ChannelInitializer<SocketChannel>() {
-                             @Override
-                             protected void initChannel(SocketChannel ch) throws Exception {
-                                 ch.pipeline().addLast(
-                                         new NettyEncoder(),
-                                         new NettyDecoder(),
-                                         new NettyClientHandler(responseTable));
-                             }
-                         }
-                );
-        return bootstrap;
     }
 
     @Override
@@ -194,6 +168,20 @@ public class NettyRemotingClient implements RemotingClient {
                         }
                     });
         }
+        bootstrap.group(this.eventLoopGroupWorker).channel(NioSocketChannel.class)
+                .option(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.SO_KEEPALIVE, false)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, nettyClientConfig.getConnectTimeoutMillis())
+                .handler(new ChannelInitializer<SocketChannel>() {
+                             @Override
+                             protected void initChannel(SocketChannel ch) throws Exception {
+                                 ch.pipeline().addLast(
+                                         new NettyEncoder(),
+                                         new NettyDecoder(),
+                                         new NettyClientHandler(responseTable));
+                             }
+                         }
+                );
     }
 
     @Override
