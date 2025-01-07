@@ -34,6 +34,14 @@ public class BrokerConfig {
 
     private String brokerName = defaultBrokerName();
 
+    private boolean asyncSendEnable = true;
+
+    private static final int PROCESSOR_NUMBER = Runtime.getRuntime().availableProcessors();
+    //发送消息线程池线程数量
+    private int sendMessageThreadPoolNums = Math.min(PROCESSOR_NUMBER, 4);
+    //发送消息队列容量
+    private int sendThreadPoolQueueCapacity = 10000;
+
     private String defaultBrokerName() {
         return StringUtils.isEmpty(localHostName) ? "DEFAULT_BROKER" : localHostName;
     }
@@ -68,5 +76,29 @@ public class BrokerConfig {
 
     public void setBrokerIP1(String brokerIP1) {
         this.brokerIP1 = brokerIP1;
+    }
+
+    public boolean isAsyncSendEnable() {
+        return asyncSendEnable;
+    }
+
+    public void setAsyncSendEnable(boolean asyncSendEnable) {
+        this.asyncSendEnable = asyncSendEnable;
+    }
+
+    public int getSendMessageThreadPoolNums() {
+        return sendMessageThreadPoolNums;
+    }
+
+    public void setSendMessageThreadPoolNums(int sendMessageThreadPoolNums) {
+        this.sendMessageThreadPoolNums = sendMessageThreadPoolNums;
+    }
+
+    public int getSendThreadPoolQueueCapacity() {
+        return sendThreadPoolQueueCapacity;
+    }
+
+    public void setSendThreadPoolQueueCapacity(int sendThreadPoolQueueCapacity) {
+        this.sendThreadPoolQueueCapacity = sendThreadPoolQueueCapacity;
     }
 }

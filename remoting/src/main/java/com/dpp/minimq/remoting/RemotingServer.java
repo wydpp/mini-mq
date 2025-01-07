@@ -4,6 +4,8 @@ import com.dpp.minimq.remoting.netty.NettyRequestProcessor;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
 import io.netty.channel.Channel;
 
+import java.util.concurrent.ExecutorService;
+
 public interface RemotingServer extends RemotingService {
 
     /**
@@ -23,5 +25,5 @@ public interface RemotingServer extends RemotingService {
      *
      * @param nettyRequestProcessor
      */
-    void registerProcessor(int requestCode, NettyRequestProcessor nettyRequestProcessor);
+    void registerProcessor(int requestCode, NettyRequestProcessor nettyRequestProcessor, ExecutorService executor);
 }

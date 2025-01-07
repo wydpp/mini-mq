@@ -11,21 +11,18 @@ import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import io.netty.util.concurrent.DefaultEventExecutorGroup;
 import javafx.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
-import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class NettyRemotingServer implements RemotingServer {
+public class NettyRemotingServer extends NettyRemotingAbstract implements RemotingServer {
 
     private static final Logger log = LoggerFactory.getLogger(NettyRemotingServer.class);
 
@@ -44,11 +41,6 @@ public class NettyRemotingServer implements RemotingServer {
 
     private NettyServerHandler serverHandler;
 
-    /**
-     * 对应code的请求处理器
-     */
-    protected final HashMap<Integer/* request code */, NettyRequestProcessor> processorTable =
-            new HashMap<>(64);
 
     /**
      * 构建一个服务端
@@ -82,7 +74,7 @@ public class NettyRemotingServer implements RemotingServer {
         handshakeHandler = new HandshakeHandler();
         nettyDecoder = new NettyDecoder();
         nettyEncoder = new NettyEncoder();
-        serverHandler = new NettyServerHandler(this.processorTable);
+        serverHandler = new NettyServerHandler(this);
         //netty server 初始化
         serverBootstrap.group(this.eventLoopGroupBoss, this.eventLoopGroupSelector)
                 .channel(useEpoll() ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
@@ -203,7 +195,18 @@ public class NettyRemotingServer implements RemotingServer {
                 && Epoll.isAvailable();
     }
 
-    public void registerProcessor(int requestCode, NettyRequestProcessor nettyRequestProcessor){
-        this.processorTable.put(requestCode,nettyRequestProcessor);
+    /**
+     * 注册处理器
+     * @param requestCode
+     * @param nettyRequestProcessor
+     * @param executorService
+     */
+    public void registerProcessor(int requestCode, NettyRequestProcessor nettyRequestProcessor, ExecutorService executorService) {
+        ExecutorService executorThis = executorService;
+        if (executorThis == null) {
+            executorThis = this.publicExecutor;
+        }
+        Pair<NettyRequestProcessor, ExecutorService> pair = new Pair<>(nettyRequestProcessor, executorThis);
+        this.processorTable.put(requestCode, pair);
     }
 }

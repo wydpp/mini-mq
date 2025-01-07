@@ -12,31 +12,17 @@ public class NettyServerHandler extends SimpleChannelInboundHandler<RemotingComm
 
     private static final Logger log = LoggerFactory.getLogger(NettyServerHandler.class);
 
-    private HashMap<Integer/* request code */, NettyRequestProcessor> processorTable;
+    private NettyRemotingServer nettyRemotingServer;
 
-    public NettyServerHandler(HashMap<Integer, NettyRequestProcessor> processorTable){
-        this.processorTable = processorTable;
+    public NettyServerHandler(NettyRemotingServer nettyRemotingServer){
+        this.nettyRemotingServer = nettyRemotingServer;
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, RemotingCommand msg) {
         //处理接收到的消息
         log.info("receive msg = {}", msg);
-        NettyRequestProcessor requestProcessor = this.processorTable.get(msg.getCode());
-        RemotingCommand response = null;
-        if (requestProcessor != null){
-            try {
-                response = requestProcessor.processRequest(ctx,msg);
-                response.setId(msg.getId());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }else {
-            msg.setMessage("this is server default response");
-            response = msg;
-        }
-        ctx.channel().writeAndFlush(response);
-        ctx.close();
+        this.nettyRemotingServer.processMessageReceived(ctx, msg);
     }
 
 }

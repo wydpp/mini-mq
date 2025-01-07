@@ -13,6 +13,7 @@
         <module>broker</module>
         <module>namesrv</module>
         <module>remoting</module>
+        <module>store</module>
     </modules>
 
     <properties>
