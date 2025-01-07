@@ -34,7 +34,7 @@ public class NettyRemotingServerTest {
                 request.setMessage("this is test response");
                 return request;
             }
-        });
+        },null);
         remotingServer.start();
         return remotingServer;
     }

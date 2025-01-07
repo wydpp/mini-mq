@@ -16,11 +16,28 @@
  */
 package com.dpp.minimq.store.config;
 
+import com.dpp.minimq.store.ConsumeQueue;
+
 import java.io.File;
 
 public class MessageStoreConfig {
 
     private String storePathRootDir = System.getProperty("user.home") + File.separator + "store";
+
+    //commitlog 文件存放路径
+    private String storePathCommitLog = null;
+
+    // CommitLog file size,default is 1G
+    private int mappedFileSizeCommitLog = 1024 * 1024 * 1024;
+
+    // ConsumeQueue file size,default is 30W
+    private int mappedFileSizeConsumeQueue = 300000 * ConsumeQueue.CQ_STORE_UNIT_SIZE;
+
+    private int transientStorePoolSize = 5;
+
+    private boolean transientStorePoolEnable = false;
+
+
 
     public String getStorePathRootDir() {
         return storePathRootDir;
@@ -28,5 +45,33 @@ public class MessageStoreConfig {
 
     public void setStorePathRootDir(String storePathRootDir) {
         this.storePathRootDir = storePathRootDir;
+    }
+
+    public String getStorePathCommitLog() {
+        return storePathCommitLog;
+    }
+
+    public int getMappedFileSizeCommitLog() {
+        return mappedFileSizeCommitLog;
+    }
+
+    public int getMappedFileSizeConsumeQueue() {
+        return mappedFileSizeConsumeQueue;
+    }
+
+    public int getTransientStorePoolSize() {
+        return transientStorePoolSize;
+    }
+
+    public void setTransientStorePoolSize(int transientStorePoolSize) {
+        this.transientStorePoolSize = transientStorePoolSize;
+    }
+
+    public boolean isTransientStorePoolEnable() {
+        return transientStorePoolEnable;
+    }
+
+    public void setTransientStorePoolEnable(boolean transientStorePoolEnable) {
+        this.transientStorePoolEnable = transientStorePoolEnable;
     }
 }
