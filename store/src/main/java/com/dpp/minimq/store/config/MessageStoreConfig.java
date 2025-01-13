@@ -37,6 +37,14 @@ public class MessageStoreConfig {
 
     private boolean transientStorePoolEnable = false;
 
+    // Used by GroupTransferService to sync messages from master to slave
+    private int syncFlushTimeout = 1000 * 5;
+
+    private int slaveTimeout = 3000;
+
+    // The maximum size of message body,default is 4M,4M only for body length,not include others.
+    private int maxMessageSize = 1024 * 1024 * 4;
+
 
 
     public String getStorePathRootDir() {
@@ -73,5 +81,29 @@ public class MessageStoreConfig {
 
     public void setTransientStorePoolEnable(boolean transientStorePoolEnable) {
         this.transientStorePoolEnable = transientStorePoolEnable;
+    }
+
+    public int getSyncFlushTimeout() {
+        return syncFlushTimeout;
+    }
+
+    public void setSyncFlushTimeout(int syncFlushTimeout) {
+        this.syncFlushTimeout = syncFlushTimeout;
+    }
+
+    public int getSlaveTimeout() {
+        return slaveTimeout;
+    }
+
+    public void setSlaveTimeout(int slaveTimeout) {
+        this.slaveTimeout = slaveTimeout;
+    }
+
+    public int getMaxMessageSize() {
+        return maxMessageSize;
+    }
+
+    public void setMaxMessageSize(int maxMessageSize) {
+        this.maxMessageSize = maxMessageSize;
     }
 }

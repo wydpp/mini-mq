@@ -7,5 +7,6 @@ package com.dpp.minimq.store;
  */
 public enum PutMessageStatus {
     PUT_OK,
-    UNKNOWN_ERROR
+    UNKNOWN_ERROR,
+    MESSAGE_ILLEGAL
 }

@@ -1,5 +1,6 @@
 package com.dpp.minimq.broker.processor;
 
+import com.alibaba.fastjson.JSON;
 import com.dpp.minimq.broker.BrokerController;
 import com.dpp.minimq.broker.mqtrace.SendMessageContext;
 import com.dpp.minimq.common.TopicConfig;
@@ -79,6 +80,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
         message.setTopic(requestHeader.getTopic());
         message.setQueueId(queueIdInt);
         message.setBody(body);
+        message.setPropertiesString(JSON.toJSONString(message.getProperties()));
         if (brokerController.getBrokerConfig().isAsyncSendEnable()) {
             //异步发送消息
             CompletableFuture<PutMessageResult> asyncPutMessageFuture = this.brokerController.getMessageStore().asyncPutMessage(message);
@@ -88,7 +90,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
             asyncPutMessageFuture.thenAcceptAsync(putMessageResult -> {
                 RemotingCommand responseFuture =
                         handlePutMessageResult(putMessageResult, response, request, finalMessage, ctx, finalQueueIdInt, traceContent, mappingContext);
-                if (responseFuture != null){
+                if (responseFuture != null) {
                     doResponse(ctx, request, responseFuture);
                 }
             });
@@ -144,6 +146,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
 
     /**
      * 执行发送响应
+     *
      * @param ctx
      * @param request
      * @param response
@@ -151,7 +154,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
     private void doResponse(ChannelHandlerContext ctx, RemotingCommand request, RemotingCommand response) {
         try {
             ctx.writeAndFlush(response);
-        }catch (Throwable e){
+        } catch (Throwable e) {
             logger.error("SendMessageProcessor finished processing the request, but failed to send response, client" +
                             "address={}, request={}, response={}",
                     RemotingHelper.parseChannelRemoteAddr(ctx.channel()),

@@ -42,6 +42,8 @@ public class Message implements Serializable {
      */
     private long storeTimestamp;
 
+    private String propertiesString;
+
     public String getTopic() {
         return topic;
     }
@@ -112,5 +114,13 @@ public class Message implements Serializable {
 
     public void setStoreTimestamp(long storeTimestamp) {
         this.storeTimestamp = storeTimestamp;
+    }
+
+    public String getPropertiesString() {
+        return propertiesString;
+    }
+
+    public void setPropertiesString(String propertiesString) {
+        this.propertiesString = propertiesString;
     }
 }
