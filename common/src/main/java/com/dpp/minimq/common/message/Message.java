@@ -1,6 +1,7 @@
 package com.dpp.minimq.common.message;
 
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Map;
 
 /**
@@ -43,6 +44,8 @@ public class Message implements Serializable {
     private long storeTimestamp;
 
     private String propertiesString;
+
+    private ByteBuffer encodeBuff;
 
     public String getTopic() {
         return topic;
@@ -122,5 +125,13 @@ public class Message implements Serializable {
 
     public void setPropertiesString(String propertiesString) {
         this.propertiesString = propertiesString;
+    }
+
+    public ByteBuffer getEncodeBuff() {
+        return encodeBuff;
+    }
+
+    public void setEncodeBuff(ByteBuffer encodeBuff) {
+        this.encodeBuff = encodeBuff;
     }
 }

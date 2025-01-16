@@ -8,5 +8,6 @@ package com.dpp.minimq.store;
 public enum PutMessageStatus {
     PUT_OK,
     UNKNOWN_ERROR,
-    MESSAGE_ILLEGAL
+    MESSAGE_ILLEGAL,
+    CREATE_MAPPED_FILE_FAILED
 }
