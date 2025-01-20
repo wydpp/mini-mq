@@ -1,7 +1,10 @@
 package com.dpp.minimq.store;
 
+import com.dpp.minimq.common.ServiceThread;
 import com.dpp.minimq.common.UtilAll;
 import com.dpp.minimq.common.message.Message;
+import com.dpp.minimq.common.sysflag.MessageSysFlag;
+import com.dpp.minimq.store.config.FlushDiskType;
 import com.dpp.minimq.store.logfile.MappedFile;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
@@ -11,7 +14,11 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedList;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 /**
@@ -45,6 +52,8 @@ public class CommitLog implements Swappable {
 
     private volatile long beginTimeInLock = 0;
 
+    private final FlushManager flushManager;
+
     public CommitLog(final DefaultMessageStore messageStore) {
         this.defaultMessageStore = messageStore;
         this.topicQueueLock = new TopicQueueLock();
@@ -72,6 +81,7 @@ public class CommitLog implements Swappable {
         AppendMessageResult result = null;
         String topic = msg.getTopic();
         String topicQueueKey = generateKey(msg);
+        long elapsedTimeInLock = 0;
         MappedFile unlockMappedFile = null;
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
         //获取当前的偏移量
@@ -112,15 +122,60 @@ public class CommitLog implements Swappable {
                     return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPPED_FILE_FAILED, null));
                 }
                 result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
+                switch (result.getStatus()){
+                    case PUT_OK:
+                        //写入文件成功
+                        onCommitLogAppend(msg, result, mappedFile);
+                        break;
+                    case END_OF_FILE:
+                        onCommitLogAppend(msg, result, mappedFile);
+                        unlockMappedFile = mappedFile;
+                        //新建文件，尝试重写
+                        mappedFile = this.mappedFileQueue.getLastMappedFile(0);
+                        if (null == mappedFile){
+                            log.error("create mapped file2 error, topic: " + msg.getTopic());
+                            beginTimeInLock = 0;
+                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPPED_FILE_FAILED, result));
+                        }
+                        result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
+                        if (AppendMessageStatus.PUT_OK.equals(result.getStatus())){
+                            //写入文件成功
+                            onCommitLogAppend(msg, result, mappedFile);
+                        }else {
+                            //再次失败就不处理了
+                            log.error("appendMessage2 error, do nothing, topic: " + msg.getTopic());
+                        }
+                        break;
+                        case MESSAGE_SIZE_EXCEEDED:
+                        case PROPERTIES_SIZE_EXCEEDED:
+                            beginTimeInLock = 0;
+                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.MESSAGE_ILLEGAL, result));
+                        case UNKNOWN_ERROR:
+                            beginTimeInLock = 0;
+                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.UNKNOWN_ERROR, result));
+                        default:
+                            beginTimeInLock = 0;
+                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.UNKNOWN_ERROR, result));
+                }
+                elapsedTimeInLock = this.defaultMessageStore.getSystemClock().now() - beginLockTimestamp;
+                beginTimeInLock = 0;
             } finally {
                 putMessageLock.unlock();
             }
-
         } finally {
             //释放锁
             topicQueueLock.unlock(topicQueueKey);
         }
+        if (elapsedTimeInLock > 500) {
+            log.warn("[NOTIFYME]putMessage in lock cost time(ms)={}, bodyLength={} AppendMessageResult={}", elapsedTimeInLock, msg.getBody().length, result);
+        }
+
+        PutMessageResult putMessageResult = new PutMessageResult(PutMessageStatus.PUT_OK, result);
         return null;
+    }
+
+    protected void onCommitLogAppend(Message msg, AppendMessageResult result, MappedFile commitLogFile) {
+        this.getMessageStore().onCommitLogAppend(msg, result, commitLogFile);
     }
 
     private String generateKey(Message msg) {
@@ -139,6 +194,11 @@ public class CommitLog implements Swappable {
     public void cleanSwappedMap(long forceCleanSwapIntervalMs) {
 
     }
+
+    public MessageStore getMessageStore() {
+        return defaultMessageStore;
+    }
+
 
     class DefaultAppendMessageCallback implements AppendMessageCallback {
 
@@ -193,18 +253,27 @@ public class CommitLog implements Swappable {
                 return new PutMessageResult(PutMessageStatus.MESSAGE_ILLEGAL, null);
             }
             //消息写入缓冲区
-            this.byteBuf.writeInt(msgLen);//消息总长度
-            this.byteBuf.writeInt(msg.getQueueId());//队列ID
-            this.byteBuf.writeLong(0);//PHYSICALOFFSET
-            this.byteBuf.writeLong(msg.getBornTimestamp());//BORNTIMESTAMP
-            this.byteBuf.writeLong(msg.getStoreTimestamp());//STORETIMESTAMP
-            this.byteBuf.writeInt(bodyLength);//BODYLENGTH
+            //1 消息总长度
+            this.byteBuf.writeInt(msgLen);
+            //2 队列ID
+            this.byteBuf.writeInt(msg.getQueueId());
+            //3 PHYSICALOFFSET
+            this.byteBuf.writeLong(0);
+            //4 sysFlag
+            this.byteBuf.writeInt(msg.getSysFlag());
+            //5 BORNTIMESTAMP
+            this.byteBuf.writeLong(msg.getBornTimestamp());
+            //6 STORETIMESTAMP
+            this.byteBuf.writeLong(msg.getStoreTimestamp());
+            //7 BODY
+            this.byteBuf.writeInt(bodyLength);
             if (bodyLength > 0) {
                 this.byteBuf.writeBytes(msg.getBody());
             }
-            //topicLength不能大于byte的范围[-127,127]
+            //8 topic topicLength不能大于byte的范围[-127,127]
             this.byteBuf.writeByte((byte) topicLength);
             this.byteBuf.writeBytes(topicData);
+            //9 properties
             this.byteBuf.writeShort((short) propertiesLength);
             if (propertiesLength > 0) {
                 this.byteBuf.writeBytes(propertiesData);
@@ -245,6 +314,343 @@ public class CommitLog implements Swappable {
 
         public StringBuilder getKeyBuilder() {
             return keyBuilder;
+        }
+    }
+
+    private CompletableFuture<PutMessageResult> handleDiskFlushAndHA(PutMessageResult putMessageResult,
+                                                                     Message messageExt, int needAckNums, boolean needHandleHA) {
+        CompletableFuture<PutMessageStatus> flushResultFuture = handleDiskFlush(putMessageResult.getAppendMessageResult(), messageExt);
+        CompletableFuture<PutMessageStatus> replicaResultFuture;
+        if (!needHandleHA) {
+            replicaResultFuture = CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
+        } else {
+            replicaResultFuture = handleHA(putMessageResult.getAppendMessageResult(), putMessageResult, needAckNums);
+        }
+
+        return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
+            if (flushStatus != PutMessageStatus.PUT_OK) {
+                putMessageResult.setPutMessageStatus(flushStatus);
+            }
+            if (replicaStatus != PutMessageStatus.PUT_OK) {
+                putMessageResult.setPutMessageStatus(replicaStatus);
+            }
+            return putMessageResult;
+        });
+    }
+
+    private CompletableFuture<PutMessageStatus> handleDiskFlush(AppendMessageResult result, Message messageExt) {
+        return this.flushManager.handleDiskFlush(result, messageExt);
+    }
+
+    /**
+     * 负责管理数据刷盘操作的重要组件.
+     * 在消息存储系统中，数据的刷盘操作是将内存中的数据持久化到磁盘的过程，以确保数据的可靠性和持久性。
+     * FlushManager 的主要任务是协调和管理消息存储引擎（如 CommitLog 和 ConsumeQueue）的刷盘操作，确保数据在适当的时候从内存安全地存储到磁盘.
+     */
+    interface FlushManager {
+        void start();
+
+        void shutdown();
+
+        void wakeUpFlush();
+
+        void handleDiskFlush(AppendMessageResult result, PutMessageResult putMessageResult, Message messageExt);
+
+        CompletableFuture<PutMessageStatus> handleDiskFlush(AppendMessageResult result, Message messageExt);
+    }
+
+    abstract class FlushCommitLogService extends ServiceThread {
+        protected static final int RETRY_TIMES_OVER = 10;
+    }
+
+    /**
+     * 负责将内存中的数据实时提交到磁盘，以确保数据的持久化和消息存储的可靠性。
+     */
+    class FlushRealTimeService extends FlushCommitLogService {
+
+        private long lastFlushTimestamp = 0;
+        private long printTimes = 0;
+
+        @Override
+        public String getServiceName() {
+            return FlushRealTimeService.class.getSimpleName();
+        }
+
+        @Override
+        public void run() {
+            CommitLog.log.info(this.getServiceName() + " service started");
+            while (!this.isStopped()) {
+                boolean flushCommitLogTimed = CommitLog.this.defaultMessageStore.getMessageStoreConfig().isFlushCommitLogTimed();
+
+                int interval = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushIntervalCommitLog();
+
+                int flushPhysicQueueLeastPages = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushCommitLogLeastPages();
+
+                int flushPhysicQueueThoroughInterval =
+                        CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushCommitLogThoroughInterval();
+
+                try {
+                    if (flushCommitLogTimed) {
+                        Thread.sleep(interval);
+                    } else {
+                        this.waitForRunning(interval);
+                    }
+                    long begin = System.currentTimeMillis();
+                    //同步磁盘
+                    CommitLog.this.mappedFileQueue.flush(flushPhysicQueueLeastPages);
+                    long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
+                    if (storeTimestamp > 0) {
+                        //CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);
+                    }
+                    long past = System.currentTimeMillis();
+                    if (past > 500) {
+                        log.info("Flush data to disk costs {} ms", past);
+                    }
+                } catch (Throwable e) {
+                    CommitLog.log.error(this.getServiceName() + " service has exception. ", e);
+                }
+            }
+
+            boolean result = false;
+            for (int i = 0; i < RETRY_TIMES_OVER && !result; i++) {
+                result = CommitLog.this.mappedFileQueue.commit(0);
+                CommitLog.log.info(this.getServiceName() + " service shutdown, retry " + (i + 1) + " times " + (result ? "OK" : "Not OK"));
+            }
+            CommitLog.log.info(this.getServiceName() + " service end");
+        }
+    }
+
+    class GroupCommitService extends FlushCommitLogService {
+        private volatile LinkedList<GroupCommitRequest> requestsWrite = new LinkedList<>();
+        private volatile LinkedList<GroupCommitRequest> requestsRead = new LinkedList<>();
+        private final PutMessageSpinLock lock = new PutMessageSpinLock();
+
+        public void putRequest(final GroupCommitRequest request) {
+            lock.lock();
+            try {
+                this.requestsWrite.add(request);
+            } finally {
+                lock.unlock();
+            }
+            this.wakeup();
+        }
+
+        private void swapRequests() {
+            lock.lock();
+            try {
+                LinkedList<GroupCommitRequest> tmp = this.requestsWrite;
+                this.requestsWrite = this.requestsRead;
+                this.requestsRead = tmp;
+            } finally {
+                lock.unlock();
+            }
+        }
+
+        private void doCommit() {
+            if (!this.requestsRead.isEmpty()) {
+                for (GroupCommitRequest req : this.requestsRead) {
+                    // There may be a message in the next file, so a maximum of
+                    // two times the flush
+                    boolean flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
+                    for (int i = 0; i < 2 && !flushOK; i++) {
+                        CommitLog.this.mappedFileQueue.flush(0);
+                        flushOK = CommitLog.this.mappedFileQueue.getFlushedWhere() >= req.getNextOffset();
+                    }
+
+                    req.wakeupCustomer(flushOK ? PutMessageStatus.PUT_OK : PutMessageStatus.FLUSH_DISK_TIMEOUT);
+                }
+
+                long storeTimestamp = CommitLog.this.mappedFileQueue.getStoreTimestamp();
+                if (storeTimestamp > 0) {
+                    //CommitLog.this.defaultMessageStore.getStoreCheckpoint().setPhysicMsgTimestamp(storeTimestamp);
+                }
+                this.requestsRead = new LinkedList<>();
+            } else {
+                // Because of individual messages is set to not sync flush, it
+                // will come to this process
+                CommitLog.this.mappedFileQueue.flush(0);
+            }
+        }
+
+        @Override
+        public void run() {
+            CommitLog.log.info(this.getServiceName() + " service started");
+
+            while (!this.isStopped()) {
+                try {
+                    this.waitForRunning(10);
+                    this.doCommit();
+                } catch (Exception e) {
+                    CommitLog.log.warn(this.getServiceName() + " service has exception. ", e);
+                }
+            }
+
+            // Under normal circumstances shutdown, wait for the arrival of the
+            // request, and then flush
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                CommitLog.log.warn("GroupCommitService Exception, ", e);
+            }
+
+            this.swapRequests();
+            this.doCommit();
+
+            CommitLog.log.info(this.getServiceName() + " service end");
+        }
+
+        @Override
+        protected void onWaitEnd() {
+            this.swapRequests();
+        }
+
+        @Override
+        public String getServiceName() {
+            return GroupCommitService.class.getSimpleName();
+        }
+
+        @Override
+        public long getJoinTime() {
+            return 1000 * 60 * 5;
+        }
+    }
+
+    class DefaultFlushManager implements FlushManager {
+
+        private final FlushCommitLogService flushCommitLogService;
+
+        public DefaultFlushManager() {
+            if (FlushDiskType.SYNC_FLUSH == CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+                //异步刷盘
+                this.flushCommitLogService = new CommitLog.GroupCommitService();
+            } else {
+                //同步刷盘
+                this.flushCommitLogService = new CommitLog.FlushRealTimeService();
+            }
+        }
+
+        @Override
+        public void start() {
+            this.flushCommitLogService.start();
+
+            if (defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
+                this.commitLogService.start();
+            }
+        }
+
+        public void handleDiskFlush(AppendMessageResult result, PutMessageResult putMessageResult,
+                                    Message messageExt) {
+            // Synchronization flush
+            if (FlushDiskType.SYNC_FLUSH == CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+                final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
+                if (messageExt.isWaitStoreMsgOK()) {
+                    GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(), CommitLog.this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
+                    service.putRequest(request);
+                    CompletableFuture<PutMessageStatus> flushOkFuture = request.future();
+                    PutMessageStatus flushStatus = null;
+                    try {
+                        flushStatus = flushOkFuture.get(CommitLog.this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout(),
+                                TimeUnit.MILLISECONDS);
+                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                        //flushOK=false;
+                    }
+                    if (flushStatus != PutMessageStatus.PUT_OK) {
+                        log.error("do groupcommit, wait for flush failed, topic: " + messageExt.getTopic() + " tags: " + messageExt.getTags()
+                                + " client address: " + messageExt.getBornHostString());
+                        putMessageResult.setPutMessageStatus(PutMessageStatus.FLUSH_DISK_TIMEOUT);
+                    }
+                } else {
+                    service.wakeup();
+                }
+            }
+            // Asynchronous flush
+            else {
+                if (!CommitLog.this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
+                    flushCommitLogService.wakeup();
+                } else {
+                    commitLogService.wakeup();
+                }
+            }
+        }
+
+        @Override
+        public CompletableFuture<PutMessageStatus> handleDiskFlush(AppendMessageResult result, Message messageExt) {
+            // Synchronization flush
+            if (FlushDiskType.SYNC_FLUSH == CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+                final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
+                if (messageExt.isWaitStoreMsgOK()) {
+                    GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(), CommitLog.this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
+                    flushDiskWatcher.add(request);
+                    service.putRequest(request);
+                    return request.future();
+                } else {
+                    service.wakeup();
+                    return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
+                }
+            }
+            // Asynchronous flush
+            else {
+                if (!CommitLog.this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
+                    flushCommitLogService.wakeup();
+                } else {
+                    commitLogService.wakeup();
+                }
+                return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
+            }
+        }
+
+        @Override
+        public void wakeUpFlush() {
+            // now wake up flush thread.
+            flushCommitLogService.wakeup();
+        }
+
+        @Override
+        public void shutdown() {
+            if (defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
+                this.commitLogService.shutdown();
+            }
+
+            this.flushCommitLogService.shutdown();
+        }
+
+    }
+
+    public static class GroupCommitRequest {
+        private final long nextOffset;
+        // Indicate the GroupCommitRequest result: true or false
+        private final CompletableFuture<PutMessageStatus> flushOKFuture = new CompletableFuture<>();
+        private volatile int ackNums = 1;
+        private final long deadLine;
+
+        public GroupCommitRequest(long nextOffset, long timeoutMillis) {
+            this.nextOffset = nextOffset;
+            this.deadLine = System.nanoTime() + (timeoutMillis * 1_000_000);
+        }
+
+        public GroupCommitRequest(long nextOffset, long timeoutMillis, int ackNums) {
+            this(nextOffset, timeoutMillis);
+            this.ackNums = ackNums;
+        }
+
+        public long getNextOffset() {
+            return nextOffset;
+        }
+
+        public int getAckNums() {
+            return ackNums;
+        }
+
+        public long getDeadLine() {
+            return deadLine;
+        }
+
+        public void wakeupCustomer(final PutMessageStatus status) {
+            this.flushOKFuture.complete(status);
+        }
+
+        public CompletableFuture<PutMessageStatus> future() {
+            return flushOKFuture;
         }
     }
 

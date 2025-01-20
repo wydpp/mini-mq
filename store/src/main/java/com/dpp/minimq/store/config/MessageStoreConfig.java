@@ -45,6 +45,19 @@ public class MessageStoreConfig {
     // The maximum size of message body,default is 4M,4M only for body length,not include others.
     private int maxMessageSize = 1024 * 1024 * 4;
 
+    private FlushDiskType flushDiskType = FlushDiskType.ASYNC_FLUSH;
+
+    //同步磁盘是否开启定时同步
+    private boolean flushCommitLogTimed = true;
+
+    // CommitLog flush interval
+    // flush data to disk
+    private int flushIntervalCommitLog = 500;
+
+    // How many pages are to be flushed when flush CommitLog
+    private int flushCommitLogLeastPages = 4;
+
+    private int flushCommitLogThoroughInterval = 1000 * 10;
 
 
     public String getStorePathRootDir() {
@@ -105,5 +118,45 @@ public class MessageStoreConfig {
 
     public void setMaxMessageSize(int maxMessageSize) {
         this.maxMessageSize = maxMessageSize;
+    }
+
+    public boolean isFlushCommitLogTimed() {
+        return flushCommitLogTimed;
+    }
+
+    public void setFlushCommitLogTimed(boolean flushCommitLogTimed) {
+        this.flushCommitLogTimed = flushCommitLogTimed;
+    }
+
+    public int getFlushIntervalCommitLog() {
+        return flushIntervalCommitLog;
+    }
+
+    public void setFlushIntervalCommitLog(int flushIntervalCommitLog) {
+        this.flushIntervalCommitLog = flushIntervalCommitLog;
+    }
+
+    public int getFlushCommitLogLeastPages() {
+        return flushCommitLogLeastPages;
+    }
+
+    public void setFlushCommitLogLeastPages(int flushCommitLogLeastPages) {
+        this.flushCommitLogLeastPages = flushCommitLogLeastPages;
+    }
+
+    public int getFlushCommitLogThoroughInterval() {
+        return flushCommitLogThoroughInterval;
+    }
+
+    public void setFlushCommitLogThoroughInterval(int flushCommitLogThoroughInterval) {
+        this.flushCommitLogThoroughInterval = flushCommitLogThoroughInterval;
+    }
+
+    public FlushDiskType getFlushDiskType() {
+        return flushDiskType;
+    }
+
+    public void setFlushDiskType(FlushDiskType flushDiskType) {
+        this.flushDiskType = flushDiskType;
     }
 }

@@ -3,7 +3,10 @@ package com.dpp.minimq.store;
 import com.dpp.minimq.common.BrokerConfig;
 import com.dpp.minimq.common.SystemClock;
 import com.dpp.minimq.common.message.Message;
+import com.dpp.minimq.common.sysflag.MessageSysFlag;
 import com.dpp.minimq.store.config.MessageStoreConfig;
+import com.dpp.minimq.store.logfile.MappedFile;
+import com.dpp.minimq.store.queue.ConsumeQueueStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,12 +38,15 @@ public class DefaultMessageStore implements MessageStore {
 
     private final AllocateMappedFileService allocateMappedFileService;
 
+    private final ConsumeQueueStore consumeQueueStore;
+
     public DefaultMessageStore(BrokerConfig brokerConfig, MessageStoreConfig messageStoreConfig) {
         this.brokerConfig = brokerConfig;
         this.messageStoreConfig = messageStoreConfig;
         this.transientStorePool = new TransientStorePool(messageStoreConfig);
         this.commitLog = new CommitLog(this);
         this.allocateMappedFileService = new AllocateMappedFileService(this);
+        this.consumeQueueStore = new ConsumeQueueStore(this, messageStoreConfig);
     }
 
     @Override
@@ -101,7 +107,11 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     public void assignOffset(Message msg, short messageNum) {
-        //this.consumeQueueStore.assignQueueOffset(msg, messageNum);
+        final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
+        //非事务消息和提交事务消息，才需要更新消费队列的offset
+        if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE){
+            this.consumeQueueStore.assignQueueOffset(msg, messageNum);
+        }
     }
 
     public MessageStoreConfig getMessageStoreConfig() {
@@ -123,4 +133,10 @@ public class DefaultMessageStore implements MessageStore {
     public AllocateMappedFileService getAllocateMappedFileService() {
         return allocateMappedFileService;
     }
+
+    @Override
+    public void onCommitLogAppend(Message msg, AppendMessageResult result, MappedFile commitLogFile) {
+        // empty
+    }
+
 }

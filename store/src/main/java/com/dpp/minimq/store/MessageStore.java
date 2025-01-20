@@ -1,6 +1,7 @@
 package com.dpp.minimq.store;
 
 import com.dpp.minimq.common.message.Message;
+import com.dpp.minimq.store.logfile.MappedFile;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -52,4 +53,6 @@ public interface MessageStore {
      * @return result of store operation.
      */
     PutMessageResult putMessage(final Message msg);
+
+    void onCommitLogAppend(Message msg, AppendMessageResult result, MappedFile commitLogFile);
 }
