@@ -16,6 +16,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author dpp
  * @date 2024/12/30
  * @Description topic队列管理器
+ * 在 RocketMQ 中，Topic 是消息的逻辑分类，而 Queue 是消息的物理存储单元。
+ * 一个 Topic 可以包含多个 Queue，这些 Queue 分布在不同的 Broker 上。
+ * 为了高效地管理这些映射关系，RocketMQ 引入了 TopicQueueMappingManager。
  */
 public class TopicQueueMappingManager {
 
@@ -46,10 +49,15 @@ public class TopicQueueMappingManager {
         TopicQueueMappingDetail mappingDetail = getTopicQueueMappingDetail(topic);
         if (mappingDetail == null) {
             //当前没找到对应的主题
+            log.info("主题未找到，topic={}", topic);
             return new TopicQueueMappingContext(topic, null, null, null, null);
         }
         if (globalId == null) {
+            log.info("队列id是null,topic={}", topic);
             return new TopicQueueMappingContext(topic, null, mappingDetail, null, null);
+        }
+        if (globalId < 0 && !selectOneWhenMiss) {
+            return new TopicQueueMappingContext(topic, globalId, mappingDetail, null, null);
         }
         if (globalId < 0) {
             try {
@@ -66,9 +74,9 @@ public class TopicQueueMappingManager {
 
         List<LogicQueueMappingItem> mappingItemList = TopicQueueMappingDetail.getMappingInfo(mappingDetail, globalId);
         LogicQueueMappingItem leaderItem = null;
-        if (mappingItemList != null && !mappingItemList.isEmpty()){
+        if (mappingItemList != null && !mappingItemList.isEmpty()) {
             //队列中最后一个作为leaderItem
-            leaderItem = mappingItemList.get(mappingItemList.size()-1);
+            leaderItem = mappingItemList.get(mappingItemList.size() - 1);
         }
         return new TopicQueueMappingContext(topic, globalId, mappingDetail, mappingItemList, leaderItem);
     }

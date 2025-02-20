@@ -35,6 +35,14 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
         this.brokerController = brokerController;
     }
 
+    /**
+     * 处理生产者发送过来的消息
+     *
+     * @param ctx
+     * @param request
+     * @return
+     * @throws Exception
+     */
     @Override
     public RemotingCommand processRequest(ChannelHandlerContext ctx, RemotingCommand request) throws Exception {
         System.out.println("SendMessageProcessor: Hi " + ctx.channel().remoteAddress());
@@ -44,15 +52,16 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
             logger.info("requestHeader is null!");
             return null;
         }
-        //找到topic
-        TopicQueueMappingContext mappingContext = this.brokerController.getTopicQueueMappingManager().buildTopicQueueMappingContext(requestHeader);
+        //找到topic和对应的队列和所在的broker
+        TopicQueueMappingContext mappingContext = this.brokerController.getTopicQueueMappingManager().buildTopicQueueMappingContext(requestHeader, true);
         traceContent = buildMsgContext(ctx, requestHeader);
+        //存储消息和回复消息（异常会返回）
         RemotingCommand response = this.sendMessage(ctx, request, traceContent, requestHeader, mappingContext);
         return response;
     }
 
     /**
-     * 消息发送
+     * 消息存储和回复
      *
      * @param ctx
      * @param request        消息载体
@@ -73,7 +82,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
         Integer queueIdInt = requestHeader.getQueueId();
         //获取topic配置
         TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
-        if (queueIdInt == null || queueIdInt < 0) {//如果前面随机获取一个队列id
+        if (queueIdInt == null || queueIdInt < 0) {
             queueIdInt = randomQueueId(topicConfig.getWriteQueueNums());
         }
         Message message = new Message();
@@ -82,9 +91,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
         message.setBody(body);
         message.setPropertiesString(JSON.toJSONString(message.getProperties()));
         if (brokerController.getBrokerConfig().isAsyncSendEnable()) {
-            //异步发送消息
+            //异步存储消息
             CompletableFuture<PutMessageResult> asyncPutMessageFuture = this.brokerController.getMessageStore().asyncPutMessage(message);
-            //消息发送结果处理
+            //消息存储结果处理
             final int finalQueueIdInt = queueIdInt;
             final Message finalMessage = message;
             asyncPutMessageFuture.thenAcceptAsync(putMessageResult -> {
@@ -97,7 +106,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor {
             // Returns null to release the send message thread
             return null;
         } else {
-            //同步发送消息
+            //同步存储消息
             PutMessageResult putMessageResult = this.brokerController.getMessageStore().putMessage(message);
             handlePutMessageResult(putMessageResult, response, request, message, ctx, queueIdInt, traceContent, mappingContext);
             return response;

@@ -13,9 +13,13 @@ import java.util.concurrent.ConcurrentMap;
 public class TopicQueueMappingDetail {
 
     public static final int LEVEL_0 = 0;
-
+    /**
+     * 主题
+     */
     private String topic;
-
+    /**
+     * broker名称
+     */
     private String brokerName;
     /**
      * 队列数量
@@ -23,7 +27,13 @@ public class TopicQueueMappingDetail {
     private int totalQueues;
 
     //the mapping info in current broker, do not register to nameserver
-    private ConcurrentHashMap<Integer, List<LogicQueueMappingItem>> hostedQueues = new ConcurrentHashMap<>();
+    /**
+     * 一个队列id可能需要映射到多个逻辑队列，例如：一个全局ID可以映射到多个Broker上的逻辑队列，以实现负载均衡或容错
+     * Broker可以根据 hostQueues中的映射信息动态调整消息的路由策略
+     * hostQueues是broker的本地缓存，不会上报到nameServer
+     */
+
+    private ConcurrentMap<Integer, List<LogicQueueMappingItem>> hostedQueues = new ConcurrentHashMap<>();
 
     public static boolean putMappingInfo(TopicQueueMappingDetail mappingDetail, Integer globalId, List<LogicQueueMappingItem> mappingInfo) {
         if (mappingInfo.isEmpty()) {
@@ -84,7 +94,7 @@ public class TopicQueueMappingDetail {
         this.totalQueues = totalQueues;
     }
 
-    public ConcurrentHashMap<Integer, List<LogicQueueMappingItem>> getHostedQueues() {
+    public ConcurrentMap<Integer, List<LogicQueueMappingItem>> getHostedQueues() {
         return hostedQueues;
     }
 }

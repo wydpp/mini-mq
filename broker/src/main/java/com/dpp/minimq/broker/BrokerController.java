@@ -41,7 +41,9 @@ public class BrokerController {
      * broker netty 服务端，用来接收和处理客户端发送的消息
      */
     private RemotingServer remotingServer;
-
+    /**
+     * 主题队列映射管理器
+     */
     private TopicQueueMappingManager topicQueueMappingManager;
 
     private TopicConfigManager topicConfigManager;

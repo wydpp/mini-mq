@@ -68,6 +68,7 @@ public class CommitLog implements Swappable {
                 return new PutMessageThreadLocal(defaultMessageStore.getMessageStoreConfig().getMaxMessageSize());
             }
         };
+        flushManager = new DefaultFlushManager();
     }
 
     /**
@@ -122,7 +123,7 @@ public class CommitLog implements Swappable {
                     return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPPED_FILE_FAILED, null));
                 }
                 result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
-                switch (result.getStatus()){
+                switch (result.getStatus()) {
                     case PUT_OK:
                         //写入文件成功
                         onCommitLogAppend(msg, result, mappedFile);
@@ -132,30 +133,30 @@ public class CommitLog implements Swappable {
                         unlockMappedFile = mappedFile;
                         //新建文件，尝试重写
                         mappedFile = this.mappedFileQueue.getLastMappedFile(0);
-                        if (null == mappedFile){
+                        if (null == mappedFile) {
                             log.error("create mapped file2 error, topic: " + msg.getTopic());
                             beginTimeInLock = 0;
                             return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPPED_FILE_FAILED, result));
                         }
                         result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
-                        if (AppendMessageStatus.PUT_OK.equals(result.getStatus())){
+                        if (AppendMessageStatus.PUT_OK.equals(result.getStatus())) {
                             //写入文件成功
                             onCommitLogAppend(msg, result, mappedFile);
-                        }else {
+                        } else {
                             //再次失败就不处理了
                             log.error("appendMessage2 error, do nothing, topic: " + msg.getTopic());
                         }
                         break;
-                        case MESSAGE_SIZE_EXCEEDED:
-                        case PROPERTIES_SIZE_EXCEEDED:
-                            beginTimeInLock = 0;
-                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.MESSAGE_ILLEGAL, result));
-                        case UNKNOWN_ERROR:
-                            beginTimeInLock = 0;
-                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.UNKNOWN_ERROR, result));
-                        default:
-                            beginTimeInLock = 0;
-                            return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.UNKNOWN_ERROR, result));
+                    case MESSAGE_SIZE_EXCEEDED:
+                    case PROPERTIES_SIZE_EXCEEDED:
+                        beginTimeInLock = 0;
+                        return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.MESSAGE_ILLEGAL, result));
+                    case UNKNOWN_ERROR:
+                        beginTimeInLock = 0;
+                        return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.UNKNOWN_ERROR, result));
+                    default:
+                        beginTimeInLock = 0;
+                        return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.UNKNOWN_ERROR, result));
                 }
                 elapsedTimeInLock = this.defaultMessageStore.getSystemClock().now() - beginLockTimestamp;
                 beginTimeInLock = 0;
@@ -532,15 +533,18 @@ public class CommitLog implements Swappable {
         @Override
         public void start() {
             this.flushCommitLogService.start();
-
-            if (defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
-                this.commitLogService.start();
-            }
         }
 
+        /**
+         * 处理磁盘刷盘
+         *
+         * @param result
+         * @param putMessageResult
+         * @param messageExt
+         */
         public void handleDiskFlush(AppendMessageResult result, PutMessageResult putMessageResult,
                                     Message messageExt) {
-            // Synchronization flush
+            // Synchronization flush 同步刷盘
             if (FlushDiskType.SYNC_FLUSH == CommitLog.this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
                 final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
                 if (messageExt.isWaitStoreMsgOK()) {
@@ -565,11 +569,7 @@ public class CommitLog implements Swappable {
             }
             // Asynchronous flush
             else {
-                if (!CommitLog.this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
-                    flushCommitLogService.wakeup();
-                } else {
-                    commitLogService.wakeup();
-                }
+                flushCommitLogService.wakeup();
             }
         }
 
@@ -590,11 +590,7 @@ public class CommitLog implements Swappable {
             }
             // Asynchronous flush
             else {
-                if (!CommitLog.this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
-                    flushCommitLogService.wakeup();
-                } else {
-                    commitLogService.wakeup();
-                }
+                flushCommitLogService.wakeup();
                 return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
             }
         }
@@ -666,6 +662,7 @@ public class CommitLog implements Swappable {
 
         /**
          * 消息保存实现
+         *
          * @param fileFromOffset
          * @param byteBuffer
          * @param maxBlank

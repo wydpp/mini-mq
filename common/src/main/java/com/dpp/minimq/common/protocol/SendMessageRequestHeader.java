@@ -1,7 +1,6 @@
 package com.dpp.minimq.common.protocol;
 
 import com.dpp.minimq.common.rpc.TopicQueueRequestHeader;
-import com.dpp.minimq.common.rpc.TopicRequestHeader;
 import com.dpp.minimq.remoting.protocol.RemotingCommand;
 
 /**
@@ -10,11 +9,17 @@ import com.dpp.minimq.remoting.protocol.RemotingCommand;
  * @Description
  */
 public class SendMessageRequestHeader extends TopicQueueRequestHeader {
-
+    /**
+     * 生产者组
+     */
     private String producerGroup;
-
+    /**
+     * 主题
+     */
     private String topic;
-
+    /**
+     * 队列 id
+     */
     private Integer queueId;
 
     public String getProducerGroup() {
@@ -52,7 +57,7 @@ public class SendMessageRequestHeader extends TopicQueueRequestHeader {
     }
 
     public static SendMessageRequestHeader parseRequestHeader(RemotingCommand request) {
-        switch (request.getCode()){
+        switch (request.getCode()) {
             case RequestCode.SEND_MESSAGE:
                 SendMessageRequestHeader sendMessageRequestHeader = new SendMessageRequestHeader();
                 sendMessageRequestHeader.setProducerGroup(request.getExtField("producerGroup"));

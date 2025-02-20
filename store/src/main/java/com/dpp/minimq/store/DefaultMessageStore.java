@@ -69,6 +69,11 @@ public class DefaultMessageStore implements MessageStore {
 
     }
 
+    /**
+     * 异步写入消息到CommitLog
+     * @param msg
+     * @return
+     */
     @Override
     public CompletableFuture<PutMessageResult> asyncPutMessage(final Message msg) {
         long beginTime = this.getSystemClock().now();

@@ -31,12 +31,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Stream;
 
 /**
- * 文件队列管理:管理一系列的MappedFile对象，形成一个文件队列。它提供了一种有序的方式来存储和访问多个连续的内存映射文件，这些文件通常用于存储消息等数据。
- *
+ * 文件队列管理:管理一系列的MappedFile对象，形成一个文件队列。它提供了一种有序的方式来存储和访问多个连续的内存映射文件，这些文件通常用于存储消息等数据。<br/>
+ *<br/>
  * 存储结构抽象：是对消息存储文件组织结构的抽象。通过维护MappedFile的队列，它可以方便地实现对消息存储文件的顺序遍历、定位特定位置的文件等操作，
- * 是消息存储模块的重要组成部分，有助于高效地进行消息存储和读取。
+ * 是消息存储模块的重要组成部分，有助于高效地进行消息存储和读取。<br/>
+ * <br/>
  *
- * 数据完整性保障辅助：在数据恢复、文件清理等操作中发挥关键作用。例如，当需要从磁盘故障等情况中恢复数据时，MappedFileQueue可以辅助定位有效的文件范围，确保数据的完整性和一致性。
+ * 数据完整性保障辅助：在数据恢复、文件清理等操作中发挥关键作用。例如，当需要从磁盘故障等情况中恢复数据时，MappedFileQueue可以辅助定位有效的文件范围，确保数据的完整性和一致性。<br/>
  */
 public class MappedFileQueue implements Swappable {
     private static final Logger log = LoggerFactory.getLogger(MappedFileQueue.class);

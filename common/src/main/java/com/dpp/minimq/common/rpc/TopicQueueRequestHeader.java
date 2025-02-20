@@ -17,8 +17,16 @@
 package com.dpp.minimq.common.rpc;
 
 public abstract class TopicQueueRequestHeader extends TopicRequestHeader {
-
+    /**
+     * 获取主题队列id
+     * @return
+     */
     public abstract Integer getQueueId();
+
+    /**
+     * 设置主题队列id
+     * @param queueId
+     */
     public abstract void setQueueId(Integer queueId);
 
 }

@@ -10,19 +10,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class RemotingCommand implements Serializable {
 
     private static AtomicInteger requestId = new AtomicInteger(0);
-
+    /**
+     * 请求编码
+     */
     private int code;
-
+    /**
+     * 请求消息
+     */
     private String message;
-
+    /**
+     * 消息备注
+     */
     private String remark;
 
     private int id = requestId.getAndIncrement();
     /**
-     * 包含topic信息等
+     * 扩展信息，包含topic信息等
      */
     private HashMap<String, String> extFields;
-
+    /**
+     * 请求类型
+     */
     private RemotingCommandType remotingCommandType;
 
     protected RemotingCommand() {
