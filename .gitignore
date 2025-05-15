@@ -46,6 +46,7 @@ devenv
 *.log*
 *.iml
 .idea/
+.idea/*
 *.versionsBackup
 !NOTICE-BIN
 !LICENSE-BIN
@@ -57,3 +58,4 @@ bazel-bin
 bazel-rocketmq
 bazel-testlogs
 .vscode
+.idea
