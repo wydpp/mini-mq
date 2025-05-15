@@ -9,11 +9,7 @@
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
-        <module>common</module>
-        <module>broker</module>
-        <module>namesrv</module>
-        <module>remoting</module>
-        <module>store</module>
+        <module>minimq-broker</module>
     </modules>
 
     <properties>
