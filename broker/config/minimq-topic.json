@@ -1,0 +1,21 @@
+[
+  {
+    "topic": "order_cancel_topic",
+    "queueList": [
+      {
+        "id": "1",
+        "minOffset": 100,
+        "currentOffset": 110,
+        "maxOffset": 200
+      },
+      {
+        "id": "2",
+        "minOffset": 100,
+        "currentOffset": 110,
+        "maxOffset": 200
+      }
+    ],
+    "createAt": 1747383970874,
+    "updateAt": 1747383970874
+  }
+]
