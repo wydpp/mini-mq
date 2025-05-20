@@ -12,6 +12,7 @@ public class TopicInfoModel {
     private Long createAt;
     private Long updateAt;
     private List<TopicQueueModel> queueList;
+    private CommitLogModel latestCommitLog;
 
     public String getTopic() {
         return topic;
@@ -45,13 +46,22 @@ public class TopicInfoModel {
         this.queueList = queueList;
     }
 
+    public CommitLogModel getLatestCommitLog() {
+        return latestCommitLog;
+    }
+
+    public void setLatestCommitLog(CommitLogModel latestCommitLog) {
+        this.latestCommitLog = latestCommitLog;
+    }
+
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("MiniMqTopicModel{");
+        final StringBuilder sb = new StringBuilder("TopicInfoModel{");
         sb.append("topic='").append(topic).append('\'');
         sb.append(", createAt=").append(createAt);
         sb.append(", updateAt=").append(updateAt);
         sb.append(", queueList=").append(queueList);
+        sb.append(", latestCommitLog=").append(latestCommitLog);
         sb.append('}');
         return sb.toString();
     }

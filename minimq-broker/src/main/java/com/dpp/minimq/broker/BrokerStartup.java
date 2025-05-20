@@ -4,7 +4,7 @@ import com.dpp.minimq.broker.cache.CommonCache;
 import com.dpp.minimq.broker.config.GlobalPropertiesLoader;
 import com.dpp.minimq.broker.config.TopicInfoModelLoader;
 import com.dpp.minimq.broker.constants.BrokerConstants;
-import com.dpp.minimq.broker.core.MessageAppendHandler;
+import com.dpp.minimq.broker.core.CommitLogAppendHandler;
 import com.dpp.minimq.broker.model.TopicInfoModel;
 
 import java.io.IOException;
@@ -21,21 +21,16 @@ public class BrokerStartup {
 
     private static TopicInfoModelLoader topicInfoModelLoader;
 
-    private static MessageAppendHandler messageAppendHandler;
+    private static CommitLogAppendHandler commitLogAppendHandler;
 
     private static void initProperties() throws IOException {
         globalPropertiesLoader = new GlobalPropertiesLoader();
         globalPropertiesLoader.loadProperties();
         topicInfoModelLoader = new TopicInfoModelLoader();
         topicInfoModelLoader.loaderProperties();
-        messageAppendHandler = new MessageAppendHandler();
-        List<TopicInfoModel> topicInfoModels = CommonCache.getTopicInfoModels();
-        for (TopicInfoModel topicInfoModel : topicInfoModels) {
-            String filePath = CommonCache.getGlobalProperties().getMiniMqHome()
-                    + BrokerConstants.BASE_STORE_PATH
-                    + "/" + topicInfoModel.getTopic()
-                    + "/00000001";
-            messageAppendHandler.prepareMMapLoading(filePath, topicInfoModel.getTopic());
+        commitLogAppendHandler = new CommitLogAppendHandler();
+        for (TopicInfoModel topicInfoModel : CommonCache.getTopicInfoModelMap().values()) {
+            commitLogAppendHandler.prepareMMapLoading(topicInfoModel.getTopic());
         }
     }
 
@@ -44,8 +39,8 @@ public class BrokerStartup {
         initProperties();
         // 2. 模拟初始化映射
         String topic = "order_cancel_topic";
-        messageAppendHandler.appendMessage(topic, "this is order_cancel_topic");
-        String message = messageAppendHandler.readMessage(topic, 0, 10);
+        commitLogAppendHandler.appendMessage(topic, "this is order_cancel_topic");
+        String message = commitLogAppendHandler.readMessage(topic, 0, 100);
         System.out.println(message);
 
     }

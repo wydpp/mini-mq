@@ -1,6 +1,10 @@
 [
   {
     "topic": "order_cancel_topic",
+    "latestCommitLog": {
+      "fileName": "00000000",
+      "offset": 1000
+    },
     "queueList": [
       {
         "id": "1",

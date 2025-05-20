@@ -12,7 +12,7 @@ import java.util.List;
  * @date 2025/5/16
  * @Description 文件读取工具
  */
-public class FileContentReaderUtils {
+public class FileContentReaderUtil {
 
     public static String readFromFile(String path) {
         try (BufferedReader in = new BufferedReader(new FileReader(path))) {
@@ -27,7 +27,7 @@ public class FileContentReaderUtils {
     }
 
     public static void main(String[] args) {
-        String str = FileContentReaderUtils.readFromFile("D:\\code\\github\\mini-mq\\broker\\config\\minimq-topic.json");
+        String str = FileContentReaderUtil.readFromFile("D:\\code\\github\\mini-mq\\broker\\config\\minimq-topic.json");
         List<TopicInfoModel> miniMqTopicModels = JSON.parseArray(str, TopicInfoModel.class);
         System.out.println(miniMqTopicModels);
     }

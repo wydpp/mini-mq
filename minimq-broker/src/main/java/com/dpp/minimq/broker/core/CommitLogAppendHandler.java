@@ -1,5 +1,6 @@
 package com.dpp.minimq.broker.core;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -7,17 +8,17 @@ import java.io.IOException;
  * @date 2025/5/16
  * @Description
  */
-public class MessageAppendHandler {
+public class CommitLogAppendHandler {
 
     private MModelFileModelManager mModelFileModelManager = new MModelFileModelManager();
 
-    public MessageAppendHandler(){
+    public CommitLogAppendHandler(){
     }
 
-    public void prepareMMapLoading(String filePath, String topic) throws IOException {
+    public void prepareMMapLoading(String topicName) throws IOException {
         MMapFileModel mMapFileModel = new MMapFileModel();
-        mMapFileModel.loadFileInMMap(filePath, 0, 1 * 1024);
-        mModelFileModelManager.put(topic, mMapFileModel);
+        mMapFileModel.loadFileInMMap(topicName, 0, 1 * 1024);
+        mModelFileModelManager.put(topicName, mMapFileModel);
     }
 
     /**
@@ -29,7 +30,7 @@ public class MessageAppendHandler {
     public void appendMessage(String topic, String content) {
         MMapFileModel mMapFileModel = mModelFileModelManager.get(topic);
         if (mMapFileModel != null) {
-            mMapFileModel.writeContent(content.getBytes());
+            mMapFileModel.writeContent(content.getBytes(),false);
         } else {
             throw new RuntimeException("topic " + topic + " inValid");
         }
@@ -46,9 +47,9 @@ public class MessageAppendHandler {
 
     public static void main(String[] args) throws IOException {
         String topic = "order_cancel_topic";
-        MessageAppendHandler messageAppendHandler = new MessageAppendHandler();
+        CommitLogAppendHandler commitLogAppendHandler = new CommitLogAppendHandler();
         //messageAppendHandler.appendMessage(topic,"MessageAppendHandler");
         //messageAppendHandler.appendMessage(topic,"MessageAppendHandler2");
-        System.out.println(messageAppendHandler.readMessage(topic, 0, 10));
+        System.out.println(commitLogAppendHandler.readMessage(topic, 0, 10));
     }
 }
