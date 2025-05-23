@@ -2,8 +2,10 @@ package com.dpp.minimq.broker.core;
 
 import com.dpp.minimq.broker.cache.CommonCache;
 import com.dpp.minimq.broker.constants.BrokerConstants;
+import com.dpp.minimq.broker.model.CommitLogMessageModel;
 import com.dpp.minimq.broker.model.CommitLogModel;
 import com.dpp.minimq.broker.model.TopicInfoModel;
+import com.dpp.minimq.broker.utils.ByteConvertUtil;
 import com.dpp.minimq.broker.utils.CommitLogFileNameUtil;
 import io.netty.util.internal.PlatformDependent;
 
@@ -98,16 +100,14 @@ public class MMapFileModel {
         return result;
     }
 
-    public void writeContent(byte[] content) {
-        writeContent(content, false);
+    public void writeContent(CommitLogMessageModel commitLogMessageModel) {
+        writeContent(commitLogMessageModel, false);
     }
 
     /**
      * 文件写数据
-     *
-     * @param content
      */
-    public void writeContent(byte[] content, boolean force) {
+    public void writeContent(CommitLogMessageModel commitLogMessageModel, boolean force) {
         //定位到最新的commitLog文件中，记录下当前文件是否已经写满，如果写满，则创建新的文件，并且做新的映射
         //如果当前文件没有写满，对content内容做一层封装，在判断写入是否会导致CommitLog文件写满，如果写满，则创建新的文件，并且做新的映射
         //如果当前文件没有写满，直接写入content内容
@@ -115,10 +115,8 @@ public class MMapFileModel {
         //写入数据，offset变更，如果高并发场景，offset会不会被多个线程访问
         //加锁机制
 
-
         //默认刷到page cache,如果需要强制刷盘,可以使用mappedByteBuffer.force()
-        ByteBuffer byteBuffer = mappedByteBuffer.slice();
-        byteBuffer.put(content);
+        mappedByteBuffer.put(commitLogMessageModel.convertToBytes());
         if (force) {
             mappedByteBuffer.force();
         }

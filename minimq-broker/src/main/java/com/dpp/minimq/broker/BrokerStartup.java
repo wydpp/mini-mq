@@ -39,7 +39,7 @@ public class BrokerStartup {
         initProperties();
         // 2. 模拟初始化映射
         String topic = "order_cancel_topic";
-        commitLogAppendHandler.appendMessage(topic, "this is order_cancel_topic");
+        //commitLogAppendHandler.appendMessage(topic, "this is order_cancel_topic");
         String message = commitLogAppendHandler.readMessage(topic, 0, 100);
         System.out.println(message);
 

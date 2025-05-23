@@ -1,5 +1,7 @@
 package com.dpp.minimq.broker.core;
 
+import com.dpp.minimq.broker.model.CommitLogMessageModel;
+
 import java.io.File;
 import java.io.IOException;
 
@@ -27,10 +29,13 @@ public class CommitLogAppendHandler {
      * @param topic
      * @param content
      */
-    public void appendMessage(String topic, String content) {
+    public void appendMessage(String topic, byte[] content) {
         MMapFileModel mMapFileModel = mModelFileModelManager.get(topic);
         if (mMapFileModel != null) {
-            mMapFileModel.writeContent(content.getBytes(),false);
+            CommitLogMessageModel commitLogMessageModel = new CommitLogMessageModel();
+            commitLogMessageModel.setContent(content);
+            commitLogMessageModel.setSize(content.length);
+            mMapFileModel.writeContent(commitLogMessageModel);
         } else {
             throw new RuntimeException("topic " + topic + " inValid");
         }

@@ -2,8 +2,8 @@
   {
     "topic": "order_cancel_topic",
     "latestCommitLog": {
-      "fileName": "00000000",
-      "offset": 1000
+      "fileName": "00000001",
+      "offset": 0
     },
     "queueList": [
       {
