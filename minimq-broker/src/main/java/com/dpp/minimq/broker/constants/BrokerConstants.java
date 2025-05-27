@@ -13,5 +13,7 @@ public class BrokerConstants {
 
     public static final String BASE_STORE_PATH = "/broker/store";
 
-    public static final Long COMMITLONG_DEFAULT_MMAP_SIZE = 1 * 1024 * 1024L; //1M
+    public static final Long COMMITLONG_DEFAULT_MMAP_SIZE = 1 * 1024L; //1kb
+
+    public static final Integer DEFAULT_REFRESH_TOPIC_INFO_INTERVAL = 5; //5s
 }

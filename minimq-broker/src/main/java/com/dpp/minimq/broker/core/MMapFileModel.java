@@ -1,6 +1,7 @@
 package com.dpp.minimq.broker.core;
 
 import com.dpp.minimq.broker.cache.CommonCache;
+import com.dpp.minimq.broker.config.TopicInfoModelLoader;
 import com.dpp.minimq.broker.constants.BrokerConstants;
 import com.dpp.minimq.broker.model.CommitLogMessageModel;
 import com.dpp.minimq.broker.model.CommitLogModel;
@@ -8,6 +9,8 @@ import com.dpp.minimq.broker.model.TopicInfoModel;
 import com.dpp.minimq.broker.utils.ByteConvertUtil;
 import com.dpp.minimq.broker.utils.CommitLogFileNameUtil;
 import io.netty.util.internal.PlatformDependent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -27,6 +30,8 @@ public class MMapFileModel {
     private MappedByteBuffer mappedByteBuffer;
     private FileChannel fileChannel;
     private String topic;
+
+    private static final Logger log = LoggerFactory.getLogger(TopicInfoModelLoader.class);
 
     public MMapFileModel() {
     }
@@ -59,7 +64,7 @@ public class MMapFileModel {
             throw new RuntimeException("topic " + topicName + " inValid");
         }
         CommitLogModel latestCommitLog = topicInfoModel.getLatestCommitLog();
-        long diff = latestCommitLog.getOffsetLimit() - latestCommitLog.getOffset();
+        long diff = latestCommitLog.diff();
         String filePath = null;
         if (diff == 0) {
             //已经写满了，创建新的文件
@@ -120,20 +125,28 @@ public class MMapFileModel {
         //定义一个对象，专门管理各个topic最新写入的offset值，并且定时刷新到磁盘中
         //写入数据，offset变更，如果高并发场景，offset会不会被多个线程访问
         //加锁机制
-
+        CommitLogModel commitLog = CommonCache.getTopicInfoModelMap().get(topic).getLatestCommitLog();
+        if (commitLog == null){
+            throw new RuntimeException("commitLog " + topic + " inValid");
+        }
         //判断当前文件是否已经写满
         this.checkCommitLogHasEnableSpace(commitLogMessageModel);
+        mappedByteBuffer.position(commitLog.getOffset().intValue());
         //默认刷到page cache,如果需要强制刷盘,可以使用mappedByteBuffer.force()
-        mappedByteBuffer.put(commitLogMessageModel.convertToBytes());
+        byte[] bytes = commitLogMessageModel.convertToBytes();
+        mappedByteBuffer.put(bytes);
+        //更新offset
+        commitLog.addOffset(bytes.length);
         if (force) {
             mappedByteBuffer.force();
         }
+        log.info("写入数据 success");
     }
 
     private void checkCommitLogHasEnableSpace(CommitLogMessageModel commitLogMessageModel) throws IOException {
         TopicInfoModel topicInfoModel = CommonCache.getTopicInfoModelMap().get(topic);
         CommitLogModel commitLogModel = topicInfoModel.getLatestCommitLog();
-        long diff = commitLogModel.getOffsetLimit() - commitLogModel.getOffset();
+        long diff = commitLogModel.diff();
         if (diff >= commitLogMessageModel.getSize()) {
             //还有空间
             return;

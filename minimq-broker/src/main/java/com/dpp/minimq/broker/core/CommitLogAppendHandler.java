@@ -46,7 +46,7 @@ public class CommitLogAppendHandler {
     public String readMessage(String topic, int startOffset, int size) {
         MMapFileModel mMapFileModel = mModelFileModelManager.get(topic);
         if (mMapFileModel != null) {
-            return new String(mMapFileModel.readContent(startOffset, size));
+            return new String(mMapFileModel.readContent(startOffset, size), StandardCharsets.UTF_8);
         } else {
             throw new RuntimeException("topic " + topic + " inValid");
         }

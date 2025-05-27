@@ -2,6 +2,8 @@ package com.dpp.minimq.broker.model;
 
 import com.dpp.minimq.broker.constants.BrokerConstants;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * @author dpp
  * @date 2025/5/20
@@ -15,7 +17,7 @@ public class CommitLogModel {
     /**
      * 写入的地址
      */
-    private Long offset;
+    private AtomicLong offset;
     /**
      * 文件写入的上限
      */
@@ -29,12 +31,20 @@ public class CommitLogModel {
         this.fileName = fileName;
     }
 
-    public Long getOffset() {
+    public AtomicLong getOffset() {
         return offset;
     }
 
-    public void setOffset(Long offset) {
+    public void addOffset(int size){
+        offset.addAndGet(size);
+    }
+
+    public void setOffset(AtomicLong offset) {
         this.offset = offset;
+    }
+
+    public Long diff(){
+        return offsetLimit - offset.get();
     }
 
     public Long getOffsetLimit() {

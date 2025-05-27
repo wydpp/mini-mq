@@ -5,6 +5,8 @@ import com.dpp.minimq.broker.model.TopicInfoModel;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -12,7 +14,7 @@ import java.util.List;
  * @date 2025/5/16
  * @Description 文件读取工具
  */
-public class FileContentReaderUtil {
+public class FileContentUtil {
 
     public static String readFromFile(String path) {
         try (BufferedReader in = new BufferedReader(new FileReader(path))) {
@@ -26,8 +28,17 @@ public class FileContentReaderUtil {
         }
     }
 
+    public static void overWriteToFile(String path, String content){
+        try (FileWriter fileWriter = new FileWriter(path)){
+            fileWriter.write(content);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
     public static void main(String[] args) {
-        String str = FileContentReaderUtil.readFromFile("D:\\code\\github\\mini-mq\\broker\\config\\minimq-topic.json");
+        String str = FileContentUtil.readFromFile("D:\\code\\github\\mini-mq\\broker\\config\\minimq-topic.json");
         List<TopicInfoModel> miniMqTopicModels = JSON.parseArray(str, TopicInfoModel.class);
         System.out.println(miniMqTopicModels);
     }

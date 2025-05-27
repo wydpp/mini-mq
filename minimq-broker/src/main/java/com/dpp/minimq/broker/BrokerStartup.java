@@ -9,7 +9,9 @@ import com.dpp.minimq.broker.model.TopicInfoModel;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.sql.Time;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author dpp
@@ -29,19 +31,24 @@ public class BrokerStartup {
         globalPropertiesLoader.loadProperties();
         topicInfoModelLoader = new TopicInfoModelLoader();
         topicInfoModelLoader.loaderProperties();
+        topicInfoModelLoader.startRefreshTopicInfoTask();
         commitLogAppendHandler = new CommitLogAppendHandler();
         for (TopicInfoModel topicInfoModel : CommonCache.getTopicInfoModelMap().values()) {
             commitLogAppendHandler.prepareMMapLoading(topicInfoModel.getTopic());
         }
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         // 1. 加载配置
         initProperties();
         // 2. 模拟初始化映射
         String topic = "order_cancel_topic";
-        commitLogAppendHandler.appendMessage(topic, "this is order_cancel_topic2".getBytes(StandardCharsets.UTF_8));
-        String message = commitLogAppendHandler.readMessage(topic, 0, 200);
+        String[] strings = new String[]{"Hello jerry", "Hello mark", "How old are you", "18 years old"};
+        for (String string : strings) {
+            commitLogAppendHandler.appendMessage(topic, string.getBytes(StandardCharsets.UTF_8));
+            TimeUnit.SECONDS.sleep(BrokerConstants.DEFAULT_REFRESH_TOPIC_INFO_INTERVAL+1);
+        }
+        String message = commitLogAppendHandler.readMessage(topic, 0, 1024);
         System.out.println(message);
 
     }
