@@ -8,6 +8,7 @@ import com.dpp.minimq.broker.core.CommitLogAppendHandler;
 import com.dpp.minimq.broker.model.TopicInfoModel;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -39,8 +40,8 @@ public class BrokerStartup {
         initProperties();
         // 2. 模拟初始化映射
         String topic = "order_cancel_topic";
-        //commitLogAppendHandler.appendMessage(topic, "this is order_cancel_topic");
-        String message = commitLogAppendHandler.readMessage(topic, 0, 100);
+        commitLogAppendHandler.appendMessage(topic, "this is order_cancel_topic2".getBytes(StandardCharsets.UTF_8));
+        String message = commitLogAppendHandler.readMessage(topic, 0, 200);
         System.out.println(message);
 
     }

@@ -1,5 +1,7 @@
 package com.dpp.minimq.broker.model;
 
+import com.dpp.minimq.broker.constants.BrokerConstants;
+
 /**
  * @author dpp
  * @date 2025/5/20
@@ -17,7 +19,7 @@ public class CommitLogModel {
     /**
      * 文件写入的上限
      */
-    private Long offsetLimit;
+    private Long offsetLimit = BrokerConstants.COMMITLONG_DEFAULT_MMAP_SIZE;
 
     public String getFileName() {
         return fileName;

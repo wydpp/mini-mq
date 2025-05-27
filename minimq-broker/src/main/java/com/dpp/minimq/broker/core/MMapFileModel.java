@@ -26,6 +26,7 @@ public class MMapFileModel {
     private File file;
     private MappedByteBuffer mappedByteBuffer;
     private FileChannel fileChannel;
+    private String topic;
 
     public MMapFileModel() {
     }
@@ -39,6 +40,11 @@ public class MMapFileModel {
      */
     public void loadFileInMMap(String topicName, long startOffset, long size) throws IOException {
         String filePath = getLatestCommitLogFilePath(topicName);
+        this.topic = topicName;
+        doMMap(filePath, startOffset, size);
+    }
+
+    private void doMMap(String filePath, long startOffset, long size) throws IOException {
         this.file = new File(filePath);
         if (!file.exists()) {
             throw new FileNotFoundException("filePath " + filePath + " inValid");
@@ -100,14 +106,14 @@ public class MMapFileModel {
         return result;
     }
 
-    public void writeContent(CommitLogMessageModel commitLogMessageModel) {
+    public void writeContent(CommitLogMessageModel commitLogMessageModel) throws IOException {
         writeContent(commitLogMessageModel, false);
     }
 
     /**
      * 文件写数据
      */
-    public void writeContent(CommitLogMessageModel commitLogMessageModel, boolean force) {
+    public void writeContent(CommitLogMessageModel commitLogMessageModel, boolean force) throws IOException {
         //定位到最新的commitLog文件中，记录下当前文件是否已经写满，如果写满，则创建新的文件，并且做新的映射
         //如果当前文件没有写满，对content内容做一层封装，在判断写入是否会导致CommitLog文件写满，如果写满，则创建新的文件，并且做新的映射
         //如果当前文件没有写满，直接写入content内容
@@ -115,10 +121,26 @@ public class MMapFileModel {
         //写入数据，offset变更，如果高并发场景，offset会不会被多个线程访问
         //加锁机制
 
+        //判断当前文件是否已经写满
+        this.checkCommitLogHasEnableSpace(commitLogMessageModel);
         //默认刷到page cache,如果需要强制刷盘,可以使用mappedByteBuffer.force()
         mappedByteBuffer.put(commitLogMessageModel.convertToBytes());
         if (force) {
             mappedByteBuffer.force();
+        }
+    }
+
+    private void checkCommitLogHasEnableSpace(CommitLogMessageModel commitLogMessageModel) throws IOException {
+        TopicInfoModel topicInfoModel = CommonCache.getTopicInfoModelMap().get(topic);
+        CommitLogModel commitLogModel = topicInfoModel.getLatestCommitLog();
+        long diff = commitLogModel.getOffsetLimit() - commitLogModel.getOffset();
+        if (diff >= commitLogMessageModel.getSize()) {
+            //还有空间
+            return;
+        }else {
+            //没有空间，创建新的文件
+            String newCommitLogFile = this.createNewCommitLogFile(topic, commitLogModel.getFileName());
+            this.doMMap(newCommitLogFile, 0, BrokerConstants.COMMITLONG_DEFAULT_MMAP_SIZE);
         }
     }
 
